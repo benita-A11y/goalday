@@ -25,7 +25,6 @@ function openExtra(id){
   if(!el)return;
   el.hidden=false;el.scrollTop=0;
   if(id==="palettePage")renderPalette();
-  if(id==="inspPage")renderInspiration();
   if(id==="annualPage")renderAnnual();
   applyEmoji();
 }
@@ -224,67 +223,7 @@ $("#annualPhoto").addEventListener("change",e=>{
   r.readAsDataURL(f);e.target.value="";
 });
 
-/* ═══════════ 灵感收集箱 ═══════════ */
-const INSP_COLORS=["#f57c6e","#f2b56f","#fae69e","#84c3b7","#88d8db","#71b7ed","#b8aeeb","#f2a7da"];
-function renderInspiration(){
-  const body=$("#inspBody");if(!body)return;
-  body.innerHTML="";
-  if(!state.inspirations.length){body.innerHTML=`<div class="empty-tip">灵感收集箱空空的 ☁️<br>任何一闪而过的念头都值得被收进来</div>`;return;}
-  state.inspirations.forEach((n,i)=>{
-    const card=document.createElement("div");
-    card.className="insp-card";card.draggable=true;card.dataset.i=i;
-    card.style.setProperty("--c",n.color||"#f2b56f");
-    card.innerHTML=`<div class="iacts">
-        <button data-act="task" title="转为任务">➡️</button>
-        <button data-act="edit" title="编辑">✏️</button>
-        <button data-act="del" title="删除">🗑️</button>
-      </div>
-      <div class="it">${esc(n.text)}</div>
-      ${n.img?`<img src="${n.img}" alt="">`:""}
-      <div class="imeta">${md(n.createdAt?fmtDate(new Date(n.createdAt)):todayStr())} · ${esc(n.color||"")}</div>`;
-    card.querySelector('[data-act="del"]').addEventListener("click",()=>{state.inspirations.splice(i,1);save();renderInspiration();});
-    card.querySelector('[data-act="edit"]').addEventListener("click",()=>{
-      const v=prompt("编辑灵感：",n.text);if(v!=null){n.text=v.trim();save();renderInspiration();}
-    });
-    card.querySelector('[data-act="task"]').addEventListener("click",()=>convertInspiration(n));
-    /* 拖动排序 */
-    card.addEventListener("dragstart",e=>{e.dataTransfer.setData("text/plain",i);});
-    card.addEventListener("dragover",e=>{e.preventDefault();});
-    card.addEventListener("drop",e=>{
-      e.preventDefault();const from=+e.dataTransfer.getData("text/plain");const to=i;
-      const arr=state.inspirations;const [m]=arr.splice(from,1);arr.splice(to,0,m);save();renderInspiration();
-    });
-    body.appendChild(card);
-  });
-}
-function addInspiration(text,img){
-  state.inspirations.unshift({id:uid(),text,img:img||null,color:INSP_COLORS[state.inspirations.length%INSP_COLORS.length],createdAt:Date.now()});
-  save();renderInspiration();
-}
-function convertInspiration(n){
-  pickList("转为任务 · 选择清单",val=>{
-    state.tasks.unshift({id:uid(),listId:val,title:n.text,notes:"来自灵感收集箱",due:null,dueEnd:null,time:null,allDay:false,done:false,abandoned:false,tags:[],priority:null,subs:[],createdAt:Date.now(),completedAt:null});
-    toast("已转为任务 ✅");
-  });
-}
-function pickList(title,cb){
-  const ov=document.createElement("div");ov.className="mask show";
-  ov.innerHTML=`<div class="modal show" style="max-width:420px"><h3>${esc(title)}</h3><div id="pl"></div><div class="modal-btns"><span class="flex1"></span><button id="plCancel">取消</button></div></div>`;
-  document.body.appendChild(ov);
-  const pl=ov.querySelector("#pl");
-  const mk=(label,val)=>{const b=document.createElement("button");b.className="set-btn";b.style.marginBottom="8px";b.textContent=label;b.onclick=()=>{ov.remove();cb(val);};pl.appendChild(b);};
-  mk("📥 收集箱",null);
-  state.lists.forEach(l=>mk(l.emoji+" "+l.name,l.id));
-  ov.querySelector("#plCancel").onclick=()=>ov.remove();
-  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
-}
-$("#inspAddBtn").addEventListener("click",()=>$("#inspPhoto").click());
-$("#inspInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.value.trim()){addInspiration(e.target.value.trim());e.target.value="";}});
-$("#inspPhoto").addEventListener("change",e=>{
-  const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();r.onload=()=>{const v=prompt("为这张图片写句话（可留空）：","");addInspiration(v?v.trim():"",String(r.result));};
-  r.readAsDataURL(f);e.target.value="";
-});
+/* ═══════════ 灵感收集箱（已整合进 Tab1「我的空间 · 灵感收集箱」，见 app.js） ═══════════ */
 
 /* ═══════════ 调色盘 ═══════════ */
 const INSPIRE_PALETTES=[
@@ -441,17 +380,6 @@ $$("#revModes button").forEach(b=>b.addEventListener("click",()=>{state.revMode=
 
 const _renderHabit=window.renderHabit;
 window.renderHabit=function(){_renderHabit();if(habitTab==="main")renderMoodPicker();applyEmoji();};
-
-const _renderTodo=window.renderTodo;
-window.renderTodo=function(){_renderTodo();if(state.todoLayer!=="plan")injectInspirationEntry();};
-function injectInspirationEntry(){
-  const body=$("#todoBody");if(!body)return;
-  const card=document.createElement("button");
-  card.className="home-card";card.id="inspEntry";
-  card.innerHTML=`<span class="hc-ico">💡</span><span class="hc-name">灵感收集箱</span><span class="hc-cnt">${state.inspirations.length}</span><span class="hc-go">›</span>`;
-  card.addEventListener("click",()=>openExtra("inspPage"));
-  body.insertBefore(card,body.firstChild);
-}
 
 const _renderAll=window.renderAll;
 window.renderAll=function(){_renderAll();applyEmoji();};
