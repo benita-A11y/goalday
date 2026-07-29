@@ -659,3 +659,63 @@ img.emoji{height:1.15em;width:1.15em;vertical-align:-.18em;margin:0 .02em;}
   .mood-btn{width:40px;height:40px;font-size:20px;}
   .icard{flex-basis:150px;}
 }
+
+/* ════════ v11 · 我的空间 / 灵感收集箱 / 日历浮窗 / 主题收藏色 ════════ */
+.ditem .di{width:22px;text-align:center;flex:none;font-size:16px;}
+#userLists{display:flex;flex-direction:column;}
+
+/* 灵感收集箱（Apple 圆点速记） */
+.insp-editor{padding:6px 0 4px;}
+.insp-empty{color:var(--ink-soft);font-size:13.5px;text-align:center;padding:30px 16px;line-height:1.9;}
+.insp-empty .dim{color:var(--ink-3);font-size:12px;}
+.insp-row{position:relative;border-bottom:1px solid var(--line);}
+.insp-row:last-child{border-bottom:0;}
+.insp-front{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;}
+.ib-bullet{flex:none;width:24px;height:24px;border:0;background:transparent;color:var(--accent);font-size:18px;line-height:1;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.ib-bullet:active{background:color-mix(in srgb,var(--accent) 16%,transparent);}
+.ib-text{flex:1;font-size:15px;line-height:1.6;color:var(--ink);outline:none;min-height:22px;word-break:break-word;white-space:pre-wrap;}
+.ib-text:empty:before{content:"记点什么…";color:var(--ink-3);}
+.ib-img{margin-top:6px;max-width:140px;border-radius:10px;display:block;}
+.ib-del{font-size:11px;color:var(--ink-3);margin-left:auto;flex:none;}
+.insp-add{display:flex;align-items:center;gap:10px;padding:12px 14px;}
+.insp-add .ib-bullet{color:var(--ink-3);}
+.insp-add-input{flex:1;border:0;background:transparent;font-size:15px;outline:none;color:var(--ink);}
+.insp-add-input::placeholder{color:var(--ink-3);}
+
+/* 待分类 / 回收站 提示条 */
+.triage-info{margin:10px 14px;padding:9px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent) 10%,var(--bg));color:var(--ink-soft);font-size:12.5px;}
+
+/* 我的清单详情 */
+.ll-back{border:0;background:transparent;color:var(--ink-soft);font-size:14px;padding:12px 14px 4px;cursor:pointer;}
+.ll-meta{display:flex;align-items:center;gap:8px;padding:6px 14px 12px;}
+.ll-meta b{flex:1;font-size:16px;}
+.ll-meta .dot{width:12px;height:12px;border-radius:50%;}
+.ll-edit{color:var(--accent);font-size:13px;font-weight:600;}
+
+/* 主题配色 · 我的收藏色 */
+.theme-custom{margin-top:12px;padding-top:12px;border-top:.5px solid var(--line);}
+.tc-title{font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
+.tc-row{display:flex;flex-wrap:wrap;gap:10px;}
+.tc-dot{width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line),0 2px 6px rgba(0,0,0,.12);cursor:pointer;padding:0;transition:transform .12s;}
+.tc-dot.on{box-shadow:0 0 0 2px var(--ink),0 2px 8px rgba(0,0,0,.18);transform:scale(1.06);}
+.tc-reset{display:block;margin-top:10px;border:0;background:var(--bg-soft);color:var(--ink-soft);font-size:13px;padding:8px 14px;border-radius:999px;cursor:pointer;}
+.tc-empty{font-size:12.5px;color:var(--ink-soft);line-height:1.8;}
+
+/* 周计划 · 日期范围按钮 */
+.wk-range{border:0;background:var(--bg-soft);color:var(--ink);font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:999px;cursor:pointer;white-space:nowrap;}
+.wk-range:active{background:var(--line);}
+
+/* 周计划日历浮窗 */
+.cal-pop{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
+.cal-pop[hidden]{display:none;}
+.cal-pop-inner{background:var(--bg);border-radius:16px;padding:16px;width:320px;max-width:90vw;box-shadow:0 16px 50px rgba(0,0,0,.25);}
+.cal-pop-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.cal-pop-head span{font-weight:700;font-size:15px;}
+.cal-pop-head button{width:34px;height:34px;border:0;border-radius:9px;background:var(--bg-soft);font-size:18px;cursor:pointer;color:var(--ink);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.cd{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:13px;color:var(--ink);background:var(--bg-soft);position:relative;cursor:pointer;}
+.cd.out{color:var(--ink-3);background:transparent;}
+.cd.today{font-weight:700;box-shadow:inset 0 0 0 2px var(--accent);}
+.cd.has::after{content:"";position:absolute;bottom:5px;width:5px;height:5px;border-radius:50%;background:var(--accent);}
+.cd.sel{background:var(--accent);color:#fff;}
+.cd:active{filter:brightness(.96);}
