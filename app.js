@@ -145,7 +145,12 @@ function switchTab(tab){
   state.activeTab=tab;
   /* 离开灵感收集箱多选态时清理工具条 */
   inspSel=null;const sb=$("#inspSelBar");if(sb)sb.remove();
-  Object.entries(PAGES).forEach(([k,id])=>$("#"+id).classList.toggle("active",k===tab));
+  Object.entries(PAGES).forEach(([k,id])=>{
+    const el=$("#"+id);if(!el)return;
+    const on=k===tab;
+    el.classList.toggle("active",on);
+    if(on){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}
+  });
   $$("#tabbar button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
   const inPlan=(tab==="todo"&&state.todoLayer==="plan");
   /* 右下角悬浮「+」新增按钮已移除：任务新建统一走 灵感→待分类→我的清单 流程 */
@@ -165,6 +170,52 @@ function renderAll(){renderTab(state.activeTab);save();}
 /* ═══════════ Tab1 待办 · 我的空间（灵感→待分类→周计划→我的清单→回收站） ═══════════ */
 let openListId=null;
 let inspSel=null;   /* 多选模式：Set<id> 或 null */
+let activeInspId=null;   /* 灵感收集箱当前聚焦的圆点条目 id（↑/↓ 导航基准） */
+let pendingFocusId=null; /* renderInbox 重建后需要自动聚焦的条目 id */
+/* 多行续写：在当前圆点条目内换行（不新建圆点） */
+function insertInspLineBreak(txt,n){
+  const sel=window.getSelection();
+  let range;
+  if(sel&&sel.rangeCount){range=sel.getRangeAt(0);range.deleteContents();}
+  else{range=document.createRange();range.selectNodeContents(txt);range.collapse(false);}
+  const tn=document.createTextNode("\n");
+  range.insertNode(tn);
+  const after=document.createRange();after.setStartAfter(tn);after.collapse(true);
+  sel&&sel.removeAllRanges();sel&&sel.addRange(after);
+  if(n)n.text=txt.textContent;save();
+}
+function placeCaretEnd(el){
+  const r=document.createRange();r.selectNodeContents(el);r.collapse(false);
+  const s=window.getSelection();s.removeAllRanges();s.addRange(r);
+}
+/* 聚焦到指定圆点条目末尾，平滑滚动 + 高亮闪烁 */
+function focusInspRow(id){
+  const row=document.querySelector('#todoBody .insp-row[data-id="'+id+'"]');
+  if(!row)return;
+  const txt=row.querySelector('.ib-text');if(!txt)return;
+  activeInspId=id;
+  txt.focus();placeCaretEnd(txt);
+  row.scrollIntoView({behavior:'smooth',block:'center'});
+  row.classList.add('insp-flash');setTimeout(()=>row.classList.remove('insp-flash'),320);
+}
+function showKbBar(){const b=$("#kbBar");if(b)b.hidden=false;}
+function hideKbBar(){const b=$("#kbBar");if(b)b.hidden=true;}
+/* ↓ 下箭头：有下一条则跳转，否则在当前条目下方新建圆点 */
+function inspArrowDown(){
+  if(!activeInspId)return;
+  const rows=[...document.querySelectorAll('#todoBody .insp-row')];
+  const idx=rows.findIndex(r=>r.dataset.id===activeInspId);
+  if(idx<0)return;
+  if(idx<rows.length-1){focusInspRow(rows[idx+1].dataset.id);}
+  else{pendingFocusId=addInspAt("",activeInspId);}
+}
+/* ↑ 上箭头：跳转到上一条圆点 */
+function inspArrowUp(){
+  if(!activeInspId)return;
+  const rows=[...document.querySelectorAll('#todoBody .insp-row')];
+  const idx=rows.findIndex(r=>r.dataset.id===activeInspId);
+  if(idx>0)focusInspRow(rows[idx-1].dataset.id);
+}
 function enterPlan(pool){
   state.todoLayer="plan";
   state.poolList=pool||"all";
@@ -228,10 +279,23 @@ function mkTask(listId,title){
   return {id:uid(),listId:listId||null,title:title,notes:"来自灵感收集箱",due:null,dueEnd:null,time:null,allDay:false,done:false,abandoned:false,tags:[],priority:null,subs:[],createdAt:Date.now(),completedAt:null};
 }
 function addInsp(text,img){
-  state.inspirations.push({id:uid(),text:text||"",img:img||null,createdAt:Date.now(),status:"inbox",deletedAt:null});
+  const id=uid();
+  state.inspirations.push({id:id,text:text||"",img:img||null,createdAt:Date.now(),status:"inbox",deletedAt:null});
+  pendingFocusId=id;
   save();renderInbox();
-  if(text)focusLastInsp();
+  return id;
 }
+/* 在指定条目之后插入新圆点（↓ 下箭头用），返回新条目 id */
+function addInspAt(text,afterId){
+  const id=uid();
+  const n={id:id,text:text||"",img:null,createdAt:Date.now(),status:"inbox",deletedAt:null};
+  const i=state.inspirations.findIndex(x=>x.id===afterId);
+  if(i>=0)state.inspirations.splice(i+1,0,n);else state.inspirations.push(n);
+  save();renderInbox();
+  return id;
+}
+/* 转义 + 多行换行（用于待分类/回收站等只读展示） */
+function escBr(s){return esc(s||"").replace(/\n/g,"<br>");}
 function focusLastInsp(){
   const rows=$$("#todoBody .insp-row .ib-text");
   if(rows.length){const el=rows[rows.length-1];el.focus();document.getSelection().selectAllChildren(el);}
@@ -291,6 +355,12 @@ function renderInbox(){
   body.appendChild(add);
   renderInspSelBar();
   applyEmoji();
+  /* 重建后自动聚焦（↓ 新建 / 底部新增） */
+  if(pendingFocusId){
+    const id=pendingFocusId;pendingFocusId=null;
+    const row=body.querySelector('.insp-row[data-id="'+id+'"]');
+    if(row){const t=row.querySelector('.ib-text');if(t){t.focus();placeCaretEnd(t);row.scrollIntoView({block:'center'});}}
+  }
 }
 function inspRow(n){
   const row=document.createElement("div");row.className="insp-row"+(inspSel&&inspSel.has(n.id)?" sel":"");row.dataset.id=n.id;
@@ -304,10 +374,11 @@ function inspRow(n){
   bullet.addEventListener("contextmenu",e=>{e.preventDefault();enterInspSel(n.id);});
   const txt=document.createElement("div");txt.className="ib-text";txt.contentEditable="true";txt.textContent=n.text;
   txt.addEventListener("input",()=>{n.text=txt.textContent;save();});
-  txt.addEventListener("focus",()=>row.classList.add("focus"));
-  txt.addEventListener("blur",()=>row.classList.remove("focus"));
+  txt.addEventListener("focus",()=>{row.classList.add("focus");activeInspId=n.id;showKbBar();});
+  txt.addEventListener("blur",()=>{row.classList.remove("focus");setTimeout(()=>{const a=document.activeElement;if(!a||!a.closest||!a.closest("#todoBody .ib-text"))hideKbBar();},180);});
   txt.addEventListener("keydown",e=>{
-    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();addInsp("");}
+    /* 回车：仅在当前条目内换行，不新建圆点（Apple 备忘录式交互） */
+    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();insertInspLineBreak(txt,n);}
     else if(e.key==="Backspace"&&!txt.textContent.trim()){e.preventDefault();delInspRow(n.id);}
   });
   const plus=document.createElement("button");plus.className="ib-add";plus.type="button";plus.textContent="＋";plus.title="添加图片";
@@ -407,15 +478,15 @@ function renderTriage(){
   const body=$("#todoBody");body.innerHTML="";
   const list=state.inspirations.filter(n=>n.status==="inbox");
   if(!list.length){body.innerHTML=`<div class="insp-empty">🎉 没有待整理的了，灵感都归类好啦</div>`;applyEmoji();return;}
-  const info=document.createElement("div");info.className="triage-info";info.textContent=`共 ${list.length} 条待整理 · 左滑归类到清单，右滑删除`;
+  const info=document.createElement("div");info.className="triage-info";info.textContent=`共 ${list.length} 条待整理 · 左滑归类到清单（删除请到灵感收集箱或回收站）`;
   body.appendChild(info);
   list.forEach(n=>{
     const row=document.createElement("div");row.className="insp-row";row.dataset.id=n.id;
     const front=document.createElement("div");front.className="insp-front";
-    front.innerHTML=`<span class="ib-bullet" style="pointer-events:none">○</span><div class="ib-text">${esc(n.text)}</div>`;
+    front.innerHTML=`<span class="ib-bullet" style="pointer-events:none">○</span><div class="ib-text">${escBr(n.text)}</div>`;
     if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
     row.appendChild(front);
-    enableSwipeReveal(row,{left:{label:"📂 归类",cls:"ib-cat-act",fn:()=>categorizeInsp(n.id)},right:{label:"🗑 删除",cls:"ib-del-act",fn:()=>trashInsp(n.id)}});
+    enableSwipeReveal(row,{left:{label:"📂 归类",cls:"ib-cat-act",fn:()=>categorizeInsp(n.id)},right:null});
     body.appendChild(row);
   });
   applyEmoji();
@@ -469,7 +540,7 @@ function renderTrash(){
     const row=document.createElement("div");row.className="insp-row";
     const front=document.createElement("div");front.className="insp-front";
     const days=Math.max(0,Math.ceil((Date.now()-(n.deletedAt||Date.now()))/864e5));
-    front.innerHTML=`<span class="ib-bullet">🗑️</span><div class="ib-text">${esc(n.text)}</div><span class="ib-del">${days}天前删</span>`;
+    front.innerHTML=`<span class="ib-bullet">🗑️</span><div class="ib-text">${escBr(n.text)}</div><span class="ib-del">${days}天前删</span>`;
     if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
     row.appendChild(front);
     enableSwipeReveal(row,{left:{label:"♻️ 恢复",cls:"ib-restore-act",fn:()=>restoreInsp(n.id)},right:{label:"🗑 永久删除",cls:"ib-perm-act",fn:()=>permDeleteInsp(n.id)}});
@@ -1725,3 +1796,13 @@ initSplitter();
 switchTab(state.activeTab||"todo");
 if(toastLater)setTimeout(()=>toast(toastLater),600);
 window.addEventListener("resize",()=>{if(state.activeTab==="review")renderReview();});
+
+/* ═══ 灵感收集箱键盘上方控制条（↑↓ 新建/跳转 · 完成/收起） ═══ */
+(function initKbBar(){
+  const up=$("#kbUp"),down=$("#kbDown"),done=$("#kbDone"),hide=$("#kbHide");
+  if(up)up.addEventListener("pointerdown",e=>{e.preventDefault();inspArrowUp();});
+  if(down)down.addEventListener("pointerdown",e=>{e.preventDefault();inspArrowDown();});
+  const blurAndHide=()=>{const a=document.activeElement;if(a&&a.blur)a.blur();hideKbBar();};
+  if(done)done.addEventListener("click",blurAndHide);
+  if(hide)hide.addEventListener("click",blurAndHide);
+})();
