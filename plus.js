@@ -14,15 +14,26 @@ const CONFIG = {
 if(!state.revMode)state.revMode="data";
 if(!state.moods)state.moods={};
 if(!state.palette)state.palette={favs:[],colors:[],lastInspire:null};
+if(!state.palette.favs)state.palette.favs=[];
+if(!state.palette.colors)state.palette.colors=[];
+if(!state.palette.diary)state.palette.diary=[];
+if(state.palette.dailyEmotion===undefined)state.palette.dailyEmotion=null;
+if(state.palette.dailyMood===undefined)state.palette.dailyMood=null;
+if(!state.palette.seasonSeen)state.palette.seasonSeen={};
 if(!state.inspirations)state.inspirations=[];
 if(!state.annual)state.annual={};
 
 /* ═══════════ 通用：深层页打开/关闭 ═══════════ */
+function maybeSeasonPrompt(){
+  const s=seasonNow();
+  if(!state.palette.seasonSeen[s]){state.palette.seasonSeen[s]=true;save();
+    setTimeout(()=>toast("🌸 "+seasonName(s)+"限定配色已上线，去「灵感补给 · 季节限定」看看 →"),400);}
+}
 function openExtra(id){
   const el=document.getElementById(id);
   if(!el)return;
   el.hidden=false;el.scrollTop=0;
-  if(id==="palettePage")renderPalette();
+  if(id==="palettePage"){renderPalette();maybeSeasonPrompt();}
   if(id==="annualPage")renderAnnual();
   applyEmoji();
 }
@@ -251,38 +262,301 @@ const INSPIRE_PALETTES=[
   {name:"燕麦拿铁",src:"🎨 Color Hunt 流行",colors:["#F2EDE4","#D8CBB8","#B7A892","#8A7C6E","#E8DCC8"]}
 ];
 let inspireOffset=0;
+let currentInspireTab="hot";
+
+/* ── 季节 / 时段 / 星期 工具 ── */
+function seasonNow(){const m=new Date().getMonth()+1;if(m>=3&&m<=5)return"spring";if(m>=6&&m<=8)return"summer";if(m>=9&&m<=11)return"autumn";return"winter";}
+function seasonName(s){return{spring:"春日",summer:"夏日",autumn:"秋日",winter:"冬日"}[s]||s;}
+function periodNow(){const h=new Date().getHours();if(h<11)return"morning";if(h<18)return"afternoon";return"evening";}
+function nextSeasonBound(){const now=new Date(),y=now.getFullYear();const b=[[3,20],[6,21],[9,23],[12,22]];for(const m of b){const dt=new Date(y,m[0]-1,m[1]);if(dt>now)return dt;}return new Date(y+1,2,20);}
+function seasonRemainingDays(){return Math.max(0,Math.ceil((nextSeasonBound()-new Date())/864e5));}
+
+/* ── 模块一：今日色彩情绪 ── */
+const DAILY_POOL=[
+ {season:"spring",period:"morning",name:"樱花薄荷",colors:["#FCD2D3","#CAE691","#D9EEFF","#FFF8F0","#B8AEEB"],names:["樱花粉","新芽绿","海盐蓝","奶油白","薰衣草"]},
+ {season:"spring",period:"afternoon",name:"清新鹅黄",colors:["#FAE69E","#D6F5E8","#88D8DB","#FFFDF5","#F2A7DA"],names:["鹅黄","青柠绿","薄荷蓝","奶白","蜜桃粉"]},
+ {season:"summer",period:"morning",name:"青柠汽水",colors:["#D6F5E8","#D9EEFF","#88D8DB","#FFE8B3","#FF6B6B"],names:["青柠绿","海盐蓝","薄荷绿","阳光黄","西瓜红"]},
+ {season:"summer",period:"afternoon",name:"海风微咸",colors:["#D9EEFF","#88D8DB","#71B7ED","#FFFDF5","#6FC2A8"],names:["海盐蓝","薄荷绿","湖蓝","奶白","马卡龙绿"]},
+ {season:"summer",period:"evening",name:"晚霞蜜橘",colors:["#FFE8B3","#F2B56F","#F2A7DA","#FFF8F0","#E08A6E"],names:["暖阳黄","焦糖橘","蜜桃粉","奶油白","落日橘"]},
+ {season:"autumn",period:"morning",name:"秋日暖阳",colors:["#F2B56F","#FAE69E","#8D6E63","#FFE0D6","#FFF8F0"],names:["枫叶橘","桂花黄","焦糖棕","杏色","奶油白"]},
+ {season:"autumn",period:"afternoon",name:"桂花拿铁",colors:["#E9D8A6","#D9B89A","#B07D56","#F3E7DB","#8D6E63"],names:["桂花黄","燕麦","焦糖棕","拿铁","深棕"]},
+ {season:"autumn",period:"evening",name:"暮色暖茶",colors:["#E8DFF5","#F2B56F","#8D6E63","#FFE0D6","#D5CFC5"],names:["豆沙粉","焦糖橘","热可可","杏色","暖灰"]},
+ {season:"winter",period:"morning",name:"冬日暖茶",colors:["#FFF8F0","#8D6E63","#E8DFF5","#D5CFC5","#FFE0D6"],names:["落雪白","热可可","豆沙粉","暖灰","暖杏"]},
+ {season:"winter",period:"afternoon",name:"雾蓝毛衣",colors:["#E6E9EC","#C2CCD2","#8FA3AD","#B8AEEB","#FFF8F0"],names:["雾白","雾蓝","灰蓝","薰衣草","雪白"]},
+ {season:"winter",period:"evening",name:"炉火暖橙",colors:["#F3E7DB","#E08A6E","#F2B56F","#8D6E63","#FFF8F0"],names:["暖陶","落日橘","焦糖橘","深棕","奶白"]},
+ {season:null,period:"morning",name:"清晨唤醒",colors:["#FAE69E","#D9EEFF","#88D8DB","#FFFDF5","#F2B56F"],names:["晨光黄","海盐蓝","薄荷绿","奶白","蜜橘"]},
+ {season:null,period:"afternoon",name:"专注中性",colors:["#D5CFC5","#B8AEAB","#A99B95","#F5F0EB","#88D8DB"],names:["暖灰","莫兰迪","灰紫","米白","薄荷"]},
+ {season:null,period:"evening",name:"夜色温柔",colors:["#E8DFF5","#B8AEEB","#F2A7DA","#FFF8F0","#8FA3AD"],names:["柔紫","薰衣草","蜜桃粉","奶白","雾蓝"]},
+ {season:null,period:null,name:"治愈薄荷",colors:["#D6F5E8","#88D8DB","#D9EEFF","#FFF8F0","#6FC2A8"],names:["薄荷绿","湖蓝","海盐蓝","奶白","马卡龙绿"]},
+ {season:null,period:null,name:"奶油蜜桃",colors:["#FFFDF5","#F6E7D8","#F2B56F","#B8AEEB","#88D8DB"],names:["奶白","蜜桃","焦糖橘","薰衣草","薄荷"]}
+];
+function dailyGreeting(){
+  const p=periodNow(),s=seasonNow(),w=DAY_NAMES[(new Date().getDay()+6)%7];
+  const sea={spring:"万物生长的",summer:"清清凉凉的",autumn:"温柔暖意的",winter:"柔软治愈的"}[s];
+  const per={morning:"早安",afternoon:"下午好",evening:"夜深了"}[p];
+  const wd={周一:"新的周一",周三:"周三",周五:"周五",周日:"周末"}[w]||w;
+  return per+"～今天是"+wd+"，用一抹"+sea+"色彩，给自己一点小确幸吧 🌿";
+}
+function genDailyPalettes(){
+  const s=seasonNow(),p=periodNow();
+  let pool=DAILY_POOL.filter(x=>(!x.season||x.season===s)&&(!x.period||x.period===p));
+  if(pool.length<4)pool=pool.concat(DAILY_POOL.filter(x=>(!x.season||x.season===s)));
+  if(pool.length<4)pool=pool.concat(DAILY_POOL);
+  const seed=parseInt(fmtDate(new Date()).replace(/-/g,""),10);
+  const out=[],seen=new Set();
+  for(let k=0;k<DAILY_POOL.length*3&&out.length<4;k++){
+    const idx=(seed+k)%pool.length;
+    if(seen.has(idx))continue;seen.add(idx);out.push(pool[idx]);
+  }
+  return out.slice(0,4);
+}
+function renderDaily(){
+  const box=$("#palDaily");if(!box)return;
+  const today=fmtDate(new Date());
+  if(!state.palette.dailyEmotion||state.palette.dailyEmotion.date!==today){
+    state.palette.dailyEmotion={date:today,idx:0,palettes:genDailyPalettes(),greeting:dailyGreeting()};
+    save();
+  }
+  const de=state.palette.dailyEmotion;
+  const cur=de.palettes[de.idx]||de.palettes[0];
+  box.innerHTML=`
+    <div class="pd-greet">🌸 今日色彩情绪</div>
+    <div style="font-size:13px;color:var(--ink-soft);line-height:1.7;margin-bottom:12px">${de.greeting}</div>
+    <div class="pd-cards">${cur.colors.map(c=>`<div class="pd-card"><div class="pd-sw" style="background:${c}"></div></div>`).join("")}</div>
+    <div style="font-size:11.5px;color:var(--ink-soft);text-align:center;margin-top:8px">${cur.names.join(" · ")}</div>
+    <div class="pd-acts">
+      <button class="pd-use" id="pdUse">💜 使用这套配色</button>
+      <button id="pdSwap">🔄 换一组</button>
+      <button id="pdMood">💬 记录心情</button>
+    </div>
+    <div class="pd-alt" id="pdAlt">${de.palettes.slice(1,4).map((pp,i)=>`
+      <div class="pd-alt-card"><div class="pd-sw-row">${pp.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div>
+      <div class="pd-alt-name">${pp.name}</div>
+      <button class="pd-alt-use" data-alt="${i+1}">使用</button></div>`).join("")}</div>`;
+  box.querySelector("#pdUse").onclick=()=>applyPaletteToTheme(cur.colors,cur.name,cur.names);
+  box.querySelector("#pdSwap").onclick=()=>{const a=box.querySelector("#pdAlt");a.classList.toggle("show");};
+  box.querySelectorAll(".pd-alt-use").forEach(b=>b.onclick=()=>{const pp=de.palettes[+b.dataset.alt];applyPaletteToTheme(pp.colors,pp.name,pp.names);});
+  box.querySelector("#pdMood").onclick=openMoodModal;
+}
+/* 一键应用：全局主色 + 自动生成配色日记 */
+function applyPaletteToTheme(colors,name,names){
+  state.settings.accent=(colors&&colors[0])||"#A99B95";
+  applyAccent();
+  addDiary(colors,name||"今日配色",["清单","打卡","周计划","图表"],names);
+  renderSettings();renderDiaryPrev();
+  save();
+  toast("已应用配色 🎨");
+}
+/* 自动记录配色日记 */
+function addDiary(colors,name,scope,names){
+  if(!state.palette.diary)state.palette.diary=[];
+  const now=new Date();
+  const d=fmtDate(now);
+  const t=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  state.palette.diary.unshift({date:d,time:t,name:name||"我的配色",colors:(colors||[]).slice(0,5),names:(names&&names.slice)?names.slice(0,5):colors.slice(0,5),scope:scope||["清单"],mood:state.palette.dailyMood||""});
+  if(state.palette.diary.length>200)state.palette.diary.length=200;
+}
+
+/* ── 模块二：配色日记 ── */
+function renderDiaryPrev(){
+  const box=$("#palDiaryPrev");if(!box)return;
+  const list=state.palette.diary||[];
+  if(!list.length){box.innerHTML=`<div class="dp-head"><b>📖 配色日记</b><span class="dp-more">查看全部 →</span></div><div class="dp-empty">还没有配色记录，应用一套配色后会自动生成 📝</div>`;return;}
+  const d=list[0];
+  box.innerHTML=`<div class="dp-head"><b>📖 配色日记</b><span class="dp-more">查看全部 →</span></div>
+    <div class="dp-when">${d.date} ${d.time||""}</div>
+    <div class="dp-cards">${d.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div>
+    <div class="dp-names">${esc(d.name)} · ${esc((d.names||d.colors).join(" · "))}</div>
+    ${d.mood?`<div class="dp-mood">💬 “${esc(d.mood)}”</div>`:""}
+    <div class="dp-scope">📍 已应用到：${(d.scope||[]).join(" · ")}</div>`;
+}
+function openDiary(){
+  const page=$("#diaryPage");if(!page)return;
+  page.hidden=false;page.scrollTop=0;renderDiary();applyEmoji();
+}
+function renderDiary(){
+  const body=$("#diaryBody");if(!body)return;
+  const diary=state.palette.diary||[];
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  const days=new Date(y,m+1,0).getDate();
+  const wd0=new Date(y,m,1).getDay();
+  const mark={};diary.forEach(d=>{mark[d.date]=d.colors[0];});
+  let cal=`<div class="diary-cal">`;
+  ["日","一","二","三","四","五","六"].forEach(x=>cal+=`<div class="dc-h">${x}</div>`);
+  for(let i=0;i<wd0;i++)cal+=`<div></div>`;
+  for(let d=1;d<=days;d++){
+    const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const has=mark[ds];
+    cal+=`<div class="dc${has?" has":""}${d===now.getDate()?" today":""}">${d}</div>`;
+  }
+  cal+=`</div>`;
+  let html=`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:4px">● 有配色记录的日子</div>${cal}`;
+  if(!diary.length)html+=`<div class="dp-empty" style="padding:20px">还没有配色日记，应用配色会自动记录 ✨</div>`;
+  diary.forEach((d,i)=>{
+    html+=`<div class="diary-entry" data-i="${i}">
+      <div class="de-when"><span>${d.date} ${d.time||""}</span>${d.mood?"💬":""}</div>
+      <div class="de-cards">${d.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div>
+      <div class="de-name">${esc(d.name||"我的配色")}</div>
+      <div class="de-names">${esc((d.names||d.colors).join(" · "))}</div>
+      ${d.scope&&d.scope.length?`<div class="de-scope">📍 ${esc(d.scope.join(" · "))}</div>`:""}
+      ${d.mood?`<div class="de-mood">💬 “${esc(d.mood)}”</div>`:""}
+    </div>`;
+  });
+  body.innerHTML=html;
+  body.querySelectorAll(".diary-entry").forEach(el=>{
+    el.addEventListener("contextmenu",e=>{e.preventDefault();openDiaryMenu(+el.dataset.i,e.clientX,e.clientY);});
+  });
+}
+function openDiaryMenu(i,x,y){
+  closeDiaryMenu();
+  const d=state.palette.diary[i];if(!d)return;
+  const m=document.createElement("div");m.className="tc-menu show";m.id="diaryMenu";
+  m.innerHTML=`<button data-act="note">✏️ 编辑备注</button>
+    <button data-act="fav">❤️ 收藏此配色</button>
+    <button data-act="del" class="danger">🗑 删除此条</button>`;
+  document.body.appendChild(m);
+  m.style.left=Math.min(x,window.innerWidth-(m.offsetWidth||160)-8)+"px";
+  m.style.top=Math.min(y,window.innerHeight-(m.offsetHeight||130)-8)+"px";
+  m.querySelector('[data-act=note]').onclick=()=>{const v=prompt("心情备注：",d.mood||"");if(v!=null){d.mood=v;save();renderDiary();renderDiaryPrev();}closeDiaryMenu();};
+  m.querySelector('[data-act=fav]').onclick=()=>{if(!state.palette.favs.some(f=>f.name===d.name)){state.palette.favs.push({name:d.name,src:"配色日记",colors:d.colors.slice()});save();renderPaletteFav();toast("已收藏到「我的收藏」❤️");}closeDiaryMenu();};
+  m.querySelector('[data-act=del]').onclick=()=>{state.palette.diary.splice(i,1);save();renderDiary();renderDiaryPrev();closeDiaryMenu();};
+  setTimeout(()=>document.addEventListener("click",function once(e){if(e.target.closest&&e.target.closest(".tc-menu"))return;closeDiaryMenu();document.removeEventListener("click",once);}),0);
+}
+function closeDiaryMenu(){const m=$("#diaryMenu");if(m)m.remove();}
+
+/* ── 模块三：灵感补给（分类 + 季节限定） ── */
+const SEASON_CARDS={
+  spring:[{name:"樱花物语",colors:["#FCD2D3","#CAE691","#FAE69E","#B8AEAB","#FFF8F0"],names:["樱花粉","新芽绿","淡鹅黄","雾霾蓝","奶油白"]},
+          {name:"春日野餐",colors:["#FFF6D9","#CFE3C0","#9CC08A","#F2D9B0","#F2A7DA"],names:["鹅黄","嫩绿","草绿","杏色","蜜桃粉"]}],
+  summer:[{name:"青柠汽水",colors:["#D6F5E8","#D9EEFF","#FF6B6B","#88D8DB","#FFE8B3"],names:["青柠绿","海盐蓝","西瓜红","薄荷绿","阳光黄"]},
+          {name:"海边假日",colors:["#D9EEFF","#71B7ED","#88D8DB","#FFFDF5","#6FC2A8"],names:["海盐蓝","湖蓝","薄荷绿","奶白","马卡龙绿"]}],
+  autumn:[{name:"秋日暖阳",colors:["#F2B56F","#FAE69E","#8D6E63","#FFE0D6","#FFF8F0"],names:["枫叶橘","桂花黄","焦糖棕","杏色","奶油白"]},
+          {name:"桂花拿铁",colors:["#E9D8A6","#D9B89A","#B07D56","#F3E7DB","#8D6E63"],names:["桂花黄","燕麦","焦糖棕","拿铁","深棕"]}],
+  winter:[{name:"冬日暖茶",colors:["#FFF8F0","#8D6E63","#E8DFF5","#D5CFC5","#FFE0D6"],names:["落雪白","热可可","豆沙粉","暖灰","暖杏"]},
+          {name:"落雪黄昏",colors:["#E6E9EC","#C2CCD2","#8FA3AD","#B8AEEB","#D5CFC5"],names:["雾白","雾蓝","灰蓝","薰衣草","暖灰"]}]
+};
+function seasonCards(){
+  const s=seasonNow();
+  return (SEASON_CARDS[s]||[]).map(c=>({name:c.name,colors:c.colors,names:c.names,src:"🌸 季节限定 · "+seasonName(s),seasonTag:"🌸 "+seasonName(s)+"限定"}));
+}
+function isFaved(p){return state.palette.favs.some(f=>f.name===p.name);}
+function toggleFav(p){
+  if(isFaved(p)){state.palette.favs=state.palette.favs.filter(f=>f.name!==p.name);}
+  else{state.palette.favs.push({name:p.name,src:p.src,colors:p.colors.slice()});}
+  save();renderInspireStream();renderPaletteFav();toast(isFaved(p)?"已取消收藏":"已收藏到「我的收藏」❤️");
+}
+
+/* ── 模块四：我的收藏 → 搭配推荐 ── */
+function openPair(hex,name){
+  const page=$("#pairPage");if(!page)return;
+  $("#pairTitle").textContent="🎨 你选择了「"+(name||hex)+"」";
+  const schemes=buildSchemes(hex);
+  const body=$("#pairBody");
+  body.innerHTML=schemes.map((sc,i)=>`
+    <div class="pair-scheme">
+      <div class="ps-name">${esc(sc.name)}</div>
+      <div class="ps-sw">${sc.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div>
+      <div class="ps-names">${esc(sc.colors.join(" · "))}</div>
+      <div class="ps-acts">
+        <button class="ps-prev" data-i="${i}">👀 预览效果</button>
+        <button class="ps-apply" data-i="${i}">💜 一键应用</button>
+      </div>
+    </div>`).join("");
+  body.querySelectorAll(".ps-prev").forEach(b=>b.onclick=()=>openPrev(schemes[+b.dataset.i],name));
+  body.querySelectorAll(".ps-apply").forEach(b=>b.onclick=()=>{const sc=schemes[+b.dataset.i];applyPaletteToTheme(sc.colors,name+" · "+sc.name.split(" ")[0],sc.colors);page.hidden=true;});
+  page.hidden=false;page.scrollTop=0;applyEmoji();
+}
+function buildSchemes(hex){
+  const {h,s,l}=hexToHsl(hex);const S=Math.max(s,46),L=Math.max(44,Math.min(72,l));
+  const mk=(hh,ss,ll)=>hslToHex((hh%360+360)%360,Math.max(20,Math.min(86,ss)),Math.max(28,Math.min(88,ll)));
+  const A=[hex,mk(h-34,S,L),mk(h+34,S,L),mk(h-12,Math.min(S,30),Math.min(90,L+18)),mk(h+20,Math.max(S,55),Math.max(34,L-18))];
+  const C=[hex,mk(h+180,S,L),mk(h+180,Math.min(S,30),Math.min(90,L+16)),mk(h+160,S,L-10),mk(h+200,Math.max(S,55),L-16)];
+  const T=[hex,mk(h+120,S,L),mk(h+240,S,L),mk(h+120,Math.min(S,30),Math.min(90,L+16)),mk(h+240,Math.max(S,55),L-16)];
+  return [{name:"方案A · 邻近色（和谐统一）",colors:A},{name:"方案B · 互补色（视觉冲击）",colors:C},{name:"方案C · 三角色（层次丰富）",colors:T}];
+}
+function closePair(){$("#pairPage").hidden=true;}
+function openPrev(scheme,baseName){
+  const ov=document.createElement("div");ov.className="mask show";
+  ov.innerHTML=`<div class="modal show" style="max-width:420px"><h3>👀 预览效果 · ${esc(baseName||"")}</h3>
+    <div class="prev-preview">
+      <div class="prev-block prev-mini-list">
+        <div class="pb-t">清单分类</div>
+        ${scheme.colors.map((c,i)=>`<div class="pb-row"><span class="pb-dot" style="background:${c}"></span>${["工作","个人成长","健康养生","学习","其他"][i]||("项目"+(i+1))}</div>`).join("")}
+      </div>
+      <div class="prev-block"><div class="pb-t">打卡月历</div>
+        <div class="prev-mini-cal">${Array.from({length:28},(_,k)=>`<span style="background:${scheme.colors[k%5]}"></span>`).join("")}</div>
+      </div>
+    </div>
+    <div class="modal-btns"><span class="flex1"></span><button id="pvApply" class="primary">💜 一键应用</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector("#pvApply").onclick=()=>{applyPaletteToTheme(scheme.colors,baseName+" · 预览配色",scheme.colors);ov.remove();closePair();};
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+}
+
+/* ── 模块五：记录心情 ── */
+function openMoodModal(){
+  const ov=document.createElement("div");ov.className="mask show";
+  ov.innerHTML=`<div class="modal show" style="max-width:420px"><h3>💬 记录今天的心情</h3>
+    <textarea id="moodTa" rows="3" placeholder="例如：今天有点累，但看到蓝色就平静了">${esc(state.palette.dailyMood||"")}</textarea>
+    <div class="modal-btns"><span class="flex1"></span><button id="moodCancel" class="modal-cancel">取消</button><button id="moodSave" class="primary">保存</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector("#moodCancel").onclick=()=>ov.remove();
+  ov.querySelector("#moodSave").onclick=()=>{
+    const v=ov.querySelector("#moodTa").value.trim();state.palette.dailyMood=v;
+    const list=state.palette.diary||[];if(list.length&&list[0].date===fmtDate(new Date()))list[0].mood=v;
+    save();ov.remove();toast("已记录心情 💬");renderDaily();renderDiaryPrev();
+  };
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+}
+
 function renderInspireStream(){
   const box=$("#inspireStream");if(!box)return;
-  const shuffled=INSPIRE_PALETTES.slice(inspireOffset).concat(INSPIRE_PALETTES.slice(0,inspireOffset));
+  let list=[];
+  if(currentInspireTab==="hot")list=INSPIRE_PALETTES.filter(p=>/小红书|Color Hunt|2026 春夏/.test(p.src));
+  else if(currentInspireTab==="net")list=INSPIRE_PALETTES.filter(p=>/电影|自然/.test(p.src));
+  else if(currentInspireTab==="season")list=seasonCards();
+  if(!list.length)list=INSPIRE_PALETTES;
   box.innerHTML="";
-  shuffled.slice(0,10).forEach((p,idx)=>{
-    const faved=state.palette.favs.some(f=>f.name===p.name);
-    const card=document.createElement("div");card.className="icard";
+  list.forEach((p,idx)=>{
+    const faved=isFaved(p);
+    const card=document.createElement("div");card.className="icard"+(currentInspireTab==="season"?" season":"");
+    const badge=currentInspireTab==="season"?`<div class="season-badge">${p.seasonTag} · 还剩 ${seasonRemainingDays()} 天</div>`:"";
+    const tag=currentInspireTab==="season"?`<div class="season-tag">来源：${p.src}</div>`:"";
     card.innerHTML=`
+      ${badge}
       <div class="swatches-row">${p.colors.map(c=>`<div class="sw" style="background:${c}"></div>`).join("")}</div>
       <div class="hexes">${p.colors.map(c=>`<span class="hex">${c.toUpperCase()}</span>`).join("")}</div>
-      <div class="icard-foot"><span class="src">${p.src}</span><button class="fav${faved?" on":""}" data-i="${idx}">${faved?"❤️":"🤍"}</button></div>`;
-    card.querySelector(".fav").addEventListener("click",()=>{
-      if(faved){state.palette.favs=state.palette.favs.filter(f=>f.name!==p.name);}
-      else{state.palette.favs.push({name:p.name,src:p.src,colors:p.colors.slice()});}
-      save();renderInspireStream();renderPaletteFav();toast(faved?"已取消收藏":"已收藏到「我的收藏」❤️");
-    });
+      <div class="icard-foot"><span class="src">${p.name}</span><button class="fav${faved?" on":""}" data-i="${idx}">${faved?"❤️":"🤍"}</button></div>
+      ${tag}`;
+    card.querySelector(".fav").addEventListener("click",()=>toggleFav(p));
     box.appendChild(card);
   });
 }
 function renderPaletteFav(){
-  const fav=$("#favList"),col=$("#colorList");
-  fav.innerHTML=`<div class="fav-list">${state.palette.favs.length?state.palette.favs.map((f,i)=>`
-    <div class="circle"><div class="cacts"><button data-fav="${i}" title="应用">📌</button></div>
-    <div class="dotc" style="background:${f.colors[0]}"></div><span class="cn">${esc(f.name)}</span></div>`).join(""):`<div class="empty-tip sm">还没有收藏的配色，去上方「灵感补给」点 ❤️ 吧</div>`}</div>`;
-  col.innerHTML=`<div class="fav-list">${state.palette.colors.length?state.palette.colors.map((c,i)=>`
-    <div class="circle"><div class="cacts"><button data-col="${i}" title="应用">📌</button><button data-delcol="${i}" title="删除">✕</button></div>
-    <div class="dotc" style="background:${c.hex}"></div><span class="cn">${esc(c.name||c.hex)}</span></div>`).join(""):`<div class="empty-tip sm">还没有自建颜色，点「➕ 新建颜色」</div>`}</div>`;
-  fav.querySelectorAll("[data-fav]").forEach(b=>b.addEventListener("click",()=>applyPalette(state.palette.favs[+b.dataset.fav])));
-  col.querySelectorAll("[data-col]").forEach(b=>b.addEventListener("click",()=>applyColor(state.palette.colors[+b.dataset.col],null)));
-  col.querySelectorAll("[data-delcol]").forEach(b=>b.addEventListener("click",()=>{state.palette.colors.splice(+b.dataset.delcol,1);save();renderPaletteFav();}));
+  const grid=$("#favGrid"),cnt=$("#favCount");
+  const favs=(state.palette.favs||[]).map((f,i)=>({hex:f.colors[0],name:f.name,src:"fav",idx:i}));
+  const cols=(state.palette.colors||[]).map((c,i)=>({hex:c.hex,name:c.name||c.hex,src:"col",idx:i}));
+  const all=favs.concat(cols);
+  if(cnt)cnt.textContent="共 "+all.length+" 个颜色";
+  if(!grid)return;
+  if(!all.length){grid.innerHTML=`<div class="fav-empty">还没有收藏的颜色，去「灵感补给」点 ❤️，或点「➕ 新建颜色」</div>`;return;}
+  grid.innerHTML=all.map(c=>`
+    <div class="fav-cell" data-hex="${c.hex}" data-name="${esc(c.name)}" data-src="${c.src}" data-idx="${c.idx}">
+      <div class="fc-sw" style="background:${c.hex}"></div>
+      <div class="fc-name">${esc(c.name)}</div>
+      <button class="fc-act" title="移除">✕</button>
+    </div>`).join("");
+  grid.querySelectorAll(".fav-cell").forEach(cell=>{
+    const hex=cell.dataset.hex,name=cell.dataset.name,src=cell.dataset.src,idx=+cell.dataset.idx;
+    cell.addEventListener("click",e=>{if(e.target.closest(".fc-act"))return;openPair(hex,name);});
+    cell.querySelector(".fc-act").addEventListener("click",e=>{e.stopPropagation();
+      if(src==="fav")state.palette.favs.splice(idx,1);else state.palette.colors.splice(idx,1);
+      save();renderPaletteFav();toast("已移除");});
+  });
 }
 function renderPalette(){
+  renderDaily();
+  renderDiaryPrev();
   renderInspireStream();
   renderPaletteFav();
 }
@@ -324,7 +598,6 @@ $("#cfSave").addEventListener("click",()=>{
   save();renderPaletteFav();$("#cfName").value="";$("#colorForm").hidden=true;toast("颜色已创建 🎨");
 });
 /* 照片取色 */
-$("#pickPhotoBtn").addEventListener("click",()=>$("#palettePhoto").click());
 $("#palettePhoto").addEventListener("change",e=>{
   const f=e.target.files[0];if(!f)return;
   const img=new Image();img.onload=()=>{
@@ -359,7 +632,19 @@ $("#paletteSync").addEventListener("click",()=>{
   fetch(CONFIG.API_BASE+"/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({palette:state.palette})})
     .then(r=>r.ok?toast("已同步到云端 ☁️"):toast("同步失败")).catch(()=>toast("同步失败，检查网络/后端"));
 });
-$("#inspireRefresh").addEventListener("click",()=>{inspireOffset=(inspireOffset+7)%INSPIRE_PALETTES.length;renderInspireStream();});
+/* 灵感补给分类切换 */
+$$("#inspireTabs button").forEach(b=>b.addEventListener("click",()=>{
+  $$("#inspireTabs button").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  renderInspireStream(b.dataset.tab);
+}));
+/* 配色日记预览 → 完整页 */
+$("#palDiaryPrev").addEventListener("click",openDiary);
+/* 子页返回 */
+$("#diaryBack").addEventListener("click",()=>{$("#diaryPage").hidden=true;});
+$("#pairBack").addEventListener("click",closePair);
+/* 照片取色（我的收藏内） */
+$("#pickPhotoBtn2").addEventListener("click",()=>$("#palettePhoto").click());
 $("#openPalette").addEventListener("click",()=>openExtra("palettePage"));
 
 /* ═══════════ 渲染接入（包装现有 render） ═══════════ */
