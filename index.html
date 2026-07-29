@@ -49,13 +49,9 @@
         <button id="weekRangeBtn" class="wk-range" style="margin-left:auto;">— 📆</button>
       </div>
     </div>
-    <div class="goal-row">
-      <span class="ico">★</span>
-      <input id="goalInput" type="text" maxlength="60" placeholder="本周最重要目标主题…">
-    </div>
     <div class="view-switch" id="viewSwitch">
       <button data-view="week" class="active">📅 周视图</button>
-      <button data-view="day">📆 日视图</button>
+      <button data-view="day">📆 日程</button>
     </div>
     <div class="vwrap" id="weekWrap">
       <div class="week-cols">
@@ -87,8 +83,18 @@
         <b id="dayTitle">今天</b>
         <button id="dayNext" class="round-btn">›</button>
         <button id="dayToday" class="mini-btn">今天</button>
+        <button id="tlAddBtn" class="mini-btn" title="新增时间块">＋时间块</button>
       </div>
-      <div class="panel" id="dayTimeline"></div>
+      <div class="tl-tray" id="tlTray" hidden>
+        <div class="tl-tray-tt">🌤️ 当日清单（长按拖到时间轴安排时段）</div>
+        <div class="tl-tray-list" id="tlTrayList"></div>
+      </div>
+      <div class="tl-scroll" id="tlScroll">
+        <div class="tl24" id="tl24">
+          <div class="tl24-hours" id="tl24Hours"></div>
+          <div class="tl24-blocks" id="tl24Blocks"></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -251,7 +257,7 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">GoalDay v15 · 打卡习惯卡片整块点击编辑（除右侧勾选圆圈）× 周计划手机端一屏化（双栏固定可视高度·仅任务列表局部滚动·单指拖拽投放）× 灵感收集箱键盘交互 × 待分类简化 × 灵动岛暗边修复 × 调色盘升级<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
+      <p class="set-note">GoalDay v16 · 周计划布局优化（移除周主题栏与底部日详情·双栏更大可用空间）× 独立日程视图（24 小时纵向时间轴·任务块拖动改时段/改时长·当日清单拖入排程·与周计划同源同步）× 打卡卡片整块点击编辑 × 灵感收集箱键盘交互 × 调色盘升级<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🗂️ 数据管理</h3>
@@ -259,7 +265,7 @@
         <span class="cd-t">🗑️ 清空当前数据</span>
         <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
       </button>
-      <div class="app-ver">GoalDay v15 · 莫兰迪 / 马卡龙奶油风</div>
+      <div class="app-ver">GoalDay v16 · 莫兰迪 / 马卡龙奶油风</div>
     </div>
   </div>
 </section>
