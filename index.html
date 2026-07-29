@@ -15,6 +15,8 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<!-- 固定全屏背景层：覆盖灵动岛/刘海安全区，杜绝暗边 -->
+<div class="bg-fix"></div>
 
 <!-- ═══════════ Tab1 待办 · 收集箱 + 双栏周计划 ═══════════ -->
 <section class="page" id="page-todo">
@@ -249,7 +251,7 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">GoalDay v13 · 待办重做（🗂️ 我的空间：灵感收集箱→待分类→周计划→我的清单→回收站，按使用流程串联）× 打卡（情绪标签）× 番茄钟 × 复盘（每日手帐时间轴·心情图表·年度回顾）× 调色盘（收藏色联动主题·5色卡·推荐配色）× 灵感收集箱（Apple 圆点速记·多选·语音·图片）<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
+      <p class="set-note">GoalDay v14 · 灵感收集箱（键盘上方 ↑↓ 控制条 · 回车仅换行 · Apple 备忘录式交互）× 待分类（仅保留归类）× 悬浮灵动岛暗边修复（固定全屏背景·0.5s 渐变·opacity 切换）× 调色盘升级（🌸 今日色彩情绪 · 📖 配色日记自动记录 · 💡 灵感补给分类+季节限定 · ❤️ 我的收藏网格→搭配推荐 · 手动创建颜色）<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🗂️ 数据管理</h3>
@@ -257,7 +259,7 @@
         <span class="cd-t">🗑️ 清空当前数据</span>
         <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
       </button>
-      <div class="app-ver">GoalDay v13 · 莫兰迪 / 马卡龙奶油风</div>
+      <div class="app-ver">GoalDay v14 · 莫兰迪 / 马卡龙奶油风</div>
     </div>
   </div>
 </section>
@@ -273,6 +275,15 @@
 
 <button id="fabAdd" title="新增">➕</button>
 <div id="doneDrop">✅ 拖到这里标记完成</div>
+
+<!-- 灵感收集箱：键盘上方控制条 -->
+<div class="kb-bar" id="kbBar" hidden>
+  <button class="kb-arr" id="kbUp" title="上一条">⬆️</button>
+  <button class="kb-arr" id="kbDown" title="新建/下一条">⬇️</button>
+  <span class="kb-flex"></span>
+  <button class="kb-action" id="kbDone">完成</button>
+  <button class="kb-action" id="kbHide">收起</button>
+</div>
 
 <!-- ═══════════ 弹窗 ═══════════ -->
 <div class="mask" id="mask">
@@ -342,31 +353,59 @@
 <section class="page page-extra" id="palettePage" hidden>
   <header class="page-head"><button class="icon-btn" data-close="palettePage">‹</button><h1>🎨 调色盘</h1></header>
   <div class="scroll-body">
+
+    <!-- 模块一：今日色彩情绪 -->
+    <div class="panel pal-daily" id="palDaily"></div>
+
+    <!-- 模块二：配色日记（预览入口） -->
+    <div class="panel pal-diary-prev" id="palDiaryPrev"></div>
+
+    <!-- 模块三：灵感补给 -->
     <div class="panel pal-inspire">
-      <h3 class="ptt">✨ 灵感补给 <button class="mini-btn" id="inspireRefresh" style="float:right">🔄 换一批</button></h3>
+      <h3 class="ptt">💡 灵感补给</h3>
+      <div class="pal-tabs" id="inspireTabs">
+        <button data-tab="hot" class="active">🔥 热门推荐</button>
+        <button data-tab="season">🌸 季节限定</button>
+        <button data-tab="net">🌐 全网精选</button>
+      </div>
       <div class="inspire-stream" id="inspireStream"></div>
     </div>
+
+    <!-- 模块四：我的收藏 -->
     <div class="panel pal-fav">
-      <h3 class="ptt">📥 我的收藏 <button class="mini-btn" id="addColorBtn" style="float:right">➕ 新建颜色</button></h3>
+      <h3 class="ptt">❤️ 我的收藏 <span class="fav-count" id="favCount"></span></h3>
+      <div class="fav-grid" id="favGrid"></div>
       <div id="colorForm" class="color-form" hidden>
         <input type="color" id="cfHex" value="#88d8db" style="width:44px;height:34px;border:0;background:none">
         <input type="text" id="cfVal" value="#88d8db" maxlength="7" style="width:84px">
         <input type="text" id="cfName" placeholder="颜色名称" maxlength="12" style="flex:1;min-width:0">
         <button class="mini-btn" id="cfSave">保存</button>
       </div>
-      <div id="favList"></div>
-      <div id="colorList"></div>
-    </div>
-    <div class="panel pal-extract">
-      <h3 class="ptt">📷 今日灵感 · 照片取色</h3>
-      <button class="set-btn" id="pickPhotoBtn">📷 上传图片取色</button>
+      <div class="pal-fav-actions">
+        <button class="mini-btn" id="addColorBtn">➕ 新建颜色</button>
+        <button class="mini-btn" id="pickPhotoBtn2">📷 照片取色</button>
+      </div>
       <div id="extractOut"></div>
     </div>
+
+    <!-- 云同步 -->
     <div class="panel">
       <h3 class="ptt">☁️ 云同步</h3>
       <p class="set-note">收藏与配色通过你的账号云同步（需配置后端 API）。未配置时仅保存在本机，离线可用。</p>
       <button class="set-btn" id="paletteSync">🔄 同步到云端</button>
     </div>
+  </div>
+
+  <!-- 子页：配色日记 -->
+  <div class="subpage" id="diaryPage" hidden>
+    <header class="page-head"><button class="icon-btn" id="diaryBack">‹</button><h1>📖 配色日记</h1><span class="ph-sub" id="diarySub"></span></header>
+    <div class="scroll-body" id="diaryBody"></div>
+  </div>
+
+  <!-- 子页：搭配推荐 -->
+  <div class="subpage" id="pairPage" hidden>
+    <header class="page-head"><button class="icon-btn" id="pairBack">‹</button><h1 id="pairTitle">🎨 搭配推荐</h1></header>
+    <div class="scroll-body" id="pairBody"></div>
   </div>
 </section>
 
