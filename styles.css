@@ -29,12 +29,16 @@ body[data-theme=macaron]{--bar:#FFFDF5;--bar-2:#EAF6F0;--bg:#FFFFFF;--bg-soft:#F
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;}
+/* 灵动岛/刘海沉浸式：背景=页面主背景，整屏铺满，禁止橡皮筋露出深色 */
 html{background:var(--bar);}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Segoe UI","Microsoft YaHei",sans-serif;
-  background:var(--bar);color:var(--ink);min-height:100vh;
+  background:var(--bar);color:var(--ink);min-height:100vh;min-height:100dvh;
   -webkit-font-smoothing:antialiased;letter-spacing:-.1px;
+  overscroll-behavior-y:contain;
 }
+/* 顶部安全区由各页头的内边距兜底，这里统一让页面主背景无缝延展到屏幕最顶端/最底端 */
+.page, .page-extra{background:var(--bar);}
 button,input,select,textarea{font-family:inherit;color:var(--ink);}
 button{cursor:pointer;border:0;background:none;}
 h1,h3,h4{margin:0;}
@@ -67,12 +71,8 @@ h1,h3,h4{margin:0;}
 #tabbar button.active i{opacity:1;transform:scale(1.08);}
 
 /* ═══ FAB ═══ */
-#fabAdd{
-  position:fixed;right:18px;bottom:calc(var(--tabbar-h) + 22px + env(safe-area-inset-bottom));z-index:60;
-  width:52px;height:52px;border-radius:50%;font-size:22px;
-  background:var(--ink);color:#fff;
-  box-shadow:0 8px 20px rgba(0,0,0,.18);transition:.2s;display:none;
-}
+/* 右下角悬浮「+」新增按钮已按需求移除（任务统一走清单流程创建） */
+#fabAdd{display:none!important;}
 #fabAdd.show{display:flex;align-items:center;justify-content:center;}
 #fabAdd:active{transform:scale(.92);}
 
@@ -379,6 +379,7 @@ canvas{width:100%;display:block;}
 .set-note{font-size:12.5px;color:var(--ink-soft);margin:0;line-height:1.7;}
 .set-btn{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:13px;font-size:14.5px;text-align:left;color:var(--ink);font-weight:500;width:100%;}
 .set-btn:active{background:var(--bg-soft);}
+.set-btn.pick-row{display:flex;align-items:center;gap:9px;}
 /* ═══ 待办·收集箱首页卡片 ═══ */
 .home-card{
   display:flex;align-items:center;gap:12px;width:100%;text-align:left;
@@ -719,3 +720,98 @@ img.emoji{height:1.15em;width:1.15em;vertical-align:-.18em;margin:0 .02em;}
 .cd.has::after{content:"";position:absolute;bottom:5px;width:5px;height:5px;border-radius:50%;background:var(--accent);}
 .cd.sel{background:var(--accent);color:#fff;}
 .cd:active{filter:brightness(.96);}
+
+/* ═══════════ v12 · 灵感收集箱升级 / 我的收藏色 / 沉浸式 ═══════════ */
+
+/* ── 选中态（多选） ── */
+.insp-row.sel .insp-front{background:color-mix(in srgb,var(--accent) 12%,var(--bg));border-radius:10px;}
+.insp-row.sel .ib-bullet{color:#fff;background:var(--accent);}
+.insp-row.focus .ib-text{outline:none;}
+
+/* ── 左/右滑动揭示操作 ── */
+.insp-actions{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 14px;}
+.insp-actions.ia-right{right:0;}
+.insp-actions.ia-left{left:0;}
+.ib-act{border:0;color:#fff;font-size:13px;font-weight:600;border-radius:10px;padding:8px 14px;white-space:nowrap;}
+.ib-del-act{background:#E5706B;}
+.ib-cat-act{background:var(--green);}
+.ib-back-act{background:var(--blue);}
+.ib-restore-act{background:var(--green);}
+.ib-perm-act{background:#E5706B;}
+
+/* ── 行内 ＋ 图片 / 🎤 语音 按钮 ── */
+.ib-add{
+  flex:none;border:0;background:var(--bg-soft);color:var(--ink-soft);
+  width:26px;height:26px;border-radius:50%;font-size:13px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.ib-add:active{background:var(--line);}
+.ib-add.ib-mic{font-size:12px;}
+
+/* ── 多选工具条 ── */
+.insp-sel-bar{
+  position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom));z-index:80;
+  display:flex;align-items:center;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:var(--ink);color:#fff;box-shadow:0 -6px 20px rgba(0,0,0,.18);
+  animation:slideUpBar .2s ease;
+}
+@keyframes slideUpBar{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.insp-sel-bar .is-count{font-size:13px;font-weight:600;margin-right:4px;}
+.insp-sel-bar .is-btn{
+  border:0;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;color:#fff;background:rgba(255,255,255,.16);
+}
+.insp-sel-bar .is-btn:active{background:rgba(255,255,255,.3);}
+.insp-sel-bar .is-del{background:#E5706B;}
+.insp-sel-bar .is-cat{background:var(--green);}
+.insp-sel-bar .is-mv{background:var(--blue);}
+
+/* ── 待分类 / 回收站：滑动提示条优化 ── */
+.triage-info{font-size:12px;}
+
+/* ═══ 我的收藏色 · 5色卡并排 ═══ */
+.tc-title{font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:10px;}
+.tc-grid{display:flex;gap:12px;flex-wrap:wrap;}
+.tc-cell{display:flex;flex-direction:column;align-items:center;gap:5px;width:54px;cursor:pointer;position:relative;}
+.tc-sw{
+  width:48px;height:48px;border-radius:14px;box-shadow:0 0 0 1px rgba(0,0,0,.06),0 3px 8px rgba(0,0,0,.12);
+  transition:transform .12s;position:relative;
+}
+.tc-cell:active .tc-sw{transform:scale(.94);}
+.tc-cell.on .tc-sw{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--ink),0 4px 10px rgba(0,0,0,.2);}
+.tc-name{font-size:11px;color:var(--ink-soft);max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;}
+.tc-more{margin-top:10px;border:0;background:var(--bg-soft);color:var(--ink-soft);font-size:12.5px;padding:7px 14px;border-radius:999px;cursor:pointer;}
+.tc-empty{font-size:13px;color:var(--ink-soft);line-height:1.9;}
+.tc-empty b{color:var(--accent);}
+/* 长按菜单 */
+.tc-menu{
+  position:fixed;z-index:130;background:var(--bg);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 12px 32px rgba(0,0,0,.2);padding:5px;min-width:150px;display:none;
+}
+.tc-menu.show{display:block;}
+.tc-menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:8px;font-size:13.5px;color:var(--ink);}
+.tc-menu button:active{background:var(--bg-soft);}
+.tc-menu button.danger{color:var(--red);}
+
+/* ═══ 推荐配色（本地算法） ═══ */
+.tc-rec{margin-top:14px;padding-top:12px;border-top:.5px solid var(--line);}
+.tc-rec .rec-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.tc-rec .rec-sw{display:flex;border-radius:8px;overflow:hidden;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);}
+.tc-rec .rec-sw span{width:26px;height:26px;}
+.tc-rec .rec-label{font-size:11.5px;color:var(--ink-soft);}
+.tc-rec .rec-apply{margin-left:auto;border:0;background:var(--bg-soft);color:var(--ink);font-size:12px;padding:5px 12px;border-radius:999px;cursor:pointer;}
+
+/* ═══ 收藏色应用范围扩展 ═══ */
+.badge.tag{background:color-mix(in srgb,var(--accent) 14%,var(--bg));color:var(--accent-deep);border-color:color-mix(in srgb,var(--accent) 30%,transparent);}
+.chip{background:color-mix(in srgb,var(--dot,#88d8db) 10%,var(--bg));border-radius:8px;padding:3px 7px;margin:1px 0;}
+.chip .st{margin-top:1px;}
+.chip.done,.chip.abandon{background:transparent;}
+
+/* ═══ 清空数据按钮 ═══ */
+.clear-data{
+  display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;
+  background:color-mix(in srgb,var(--red) 8%,var(--bg));border:1px solid color-mix(in srgb,var(--red) 25%,var(--line));
+  border-radius:12px;padding:14px 16px;cursor:pointer;
+}
+.clear-data .cd-t{font-size:14.5px;font-weight:600;color:var(--red);}
+.clear-data .cd-s{font-size:12px;color:var(--ink-soft);}
+.app-ver{text-align:center;font-size:11px;color:var(--ink-3);margin-top:18px;}
