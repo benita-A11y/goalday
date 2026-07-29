@@ -660,9 +660,6 @@ function renderWeek(){
   $("#weekNum").textContent=`第${isoWeek(dates[0])}周`;
   $("#weekRangeBtn").textContent=`${dates[0].getMonth()+1}月${dates[0].getDate()}日 – ${dates[6].getMonth()+1}月${dates[6].getDate()}日 📆`;
   $("#todayBtn").style.visibility=state.weekOffset===0?"hidden":"visible";
-  const k=fmtDate(dates[0]);
-  const gi=$("#goalInput");
-  if(document.activeElement!==gi)gi.value=state.goals[k]||"";
 
   const grid=$("#weekGrid");grid.innerHTML="";
   dates.forEach((d,i)=>{
@@ -763,7 +760,6 @@ $("#quickInput").addEventListener("keydown",e=>{
   state.tasks.unshift({id:uid(),listId,title:v,notes:"",due:null,dueEnd:null,time:null,allDay:false,done:false,abandoned:false,tags:[],priority:null,subs:[],createdAt:Date.now(),completedAt:null});
   e.target.value="";renderWeek();save();toast("已加入待办池 🫧");
 });
-$("#goalInput").addEventListener("input",e=>{state.goals[fmtDate(mondayOf(state.weekOffset))]=e.target.value;save();});
 $("#prevWeek").addEventListener("click",()=>{state.weekOffset--;renderWeek();save();});
 $("#nextWeek").addEventListener("click",()=>{state.weekOffset++;renderWeek();save();});
 $("#todayBtn").addEventListener("click",()=>{state.weekOffset=0;renderWeek();save();});
@@ -811,33 +807,226 @@ $("#calPrevM").addEventListener("click",()=>{calOff--;renderCalPop();});
 $("#calNextM").addEventListener("click",()=>{calOff++;renderCalPop();});
 $("#calPop").addEventListener("click",e=>{if(e.target.id==="calPop")closeCalPop();});
 
-/* ── 日视图 ── */
+/* ── 日程（24 小时时间轴）视图 v16 ──
+   与周计划任务完全同源（state.tasks）：改一处两边同步。
+   非强制使用，允许大量留白；块可拖动改开始时间、下拉手柄改时长。 */
+const TL_HOUR_H=54, TL_SNAP=30; /* 每小时像素高 · 吸附分钟 */
+let tlMoved=false;               /* 拖动后抑制 click 误触 */
 $("#dayPrev").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,-1);renderDay();save();});
 $("#dayNext").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,1);renderDay();save();});
 $("#dayToday").addEventListener("click",()=>{state.dayDate=todayStr();renderDay();save();});
+$("#tlAddBtn").addEventListener("click",()=>openTaskModal(null,{due:state.dayDate,time:"09:00"}));
+function hm2min(s){if(!s)return null;const m=/^(\d{1,2}):(\d{2})/.exec(String(s));return m?(+m[1])*60+(+m[2]):null;}
+function min2hm(m){m=Math.max(0,Math.min(1439,Math.round(m)));return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
+function tlDur(t){const s=hm2min(t.time);if(s==null)return 60;const e=hm2min(t.timeEnd);return(e!=null&&e>s)?e-s:60;}
 function renderDay(){
   const ds=state.dayDate;
   const d=new Date(ds+"T00:00");
   $("#dayTitle").textContent=`${d.getMonth()+1}月${d.getDate()}日 ${DAY_NAMES[(d.getDay()+6)%7]}`+(ds===todayStr()?" · 今天":"");
-  const box=$("#dayTimeline");box.innerHTML="";
   const items=dayItems(ds);
-  if(!items.length){box.innerHTML=`<div class="empty-tip">这一天还没有安排 🛋️</div>`;return;}
-  const allday=items.filter(i=>i.type==="task"?(!i.data.time||i.data.allDay):!i.data.time);
-  const timed=items.filter(i=>!allday.includes(i)).sort((a,b)=>String(a.data.time).localeCompare(String(b.data.time)));
-  if(allday.length){
-    const row=document.createElement("div");row.className="tl-row";
-    row.innerHTML=`<div class="tl-time">🌤️ 全天</div>`;
-    const b=document.createElement("div");b.className="tl-body";
-    allday.forEach(i=>b.appendChild(i.type==="ics"?icsChip(i.data):weekChip(i.data)));
-    row.appendChild(b);box.appendChild(row);
-  }
-  timed.forEach(i=>{
-    const row=document.createElement("div");row.className="tl-row";
-    row.innerHTML=`<div class="tl-time">⏰ ${i.data.time}</div>`;
-    const b=document.createElement("div");b.className="tl-body";
-    b.appendChild(i.type==="ics"?icsChip(i.data):weekChip(i.data));
-    row.appendChild(b);box.appendChild(row);
+  /* 顶部托盘：当日尚未安排时间的任务（同源于周视图当日清单），长按拖到时间轴分配时段 */
+  const tray=items.filter(i=>i.type==="task"&&!i.data.abandoned&&(!i.data.time||i.data.allDay));
+  const trayBox=$("#tlTrayList");trayBox.innerHTML="";
+  $("#tlTray").hidden=!tray.length;
+  tray.forEach(i=>{
+    const t=i.data;
+    const c=document.createElement("div");
+    c.className="tl-tray-chip"+(t.done?" done":"");
+    c.style.setProperty("--dot",colorOf(t));
+    c.innerHTML=`<span class="dd"></span><span class="t">${esc(t.title)}</span>`;
+    c.addEventListener("click",()=>{if(!tlMoved)openTaskModal(t.id);});
+    enableTlTrayDrag(c,t.id);
+    trayBox.appendChild(c);
   });
+  /* 0–24 点小时刻度（只构建一次） */
+  const hoursBox=$("#tl24Hours");
+  if(!hoursBox.childElementCount){
+    for(let h=0;h<=24;h++){
+      const row=document.createElement("div");
+      row.className="tl-hr";
+      row.style.top=(h*TL_HOUR_H)+"px";
+      row.innerHTML=`<span class="hlab">${String(h).padStart(2,"0")}:00</span>`;
+      hoursBox.appendChild(row);
+    }
+  }
+  $("#tl24").style.height=(24*TL_HOUR_H)+"px";
+  /* 有时间的任务/事件 → 绝对定位块 */
+  const box=$("#tl24Blocks");box.innerHTML="";
+  const timed=items.filter(i=>i.type==="ics"?hm2min(i.data.time)!=null:(!i.data.allDay&&!i.data.abandoned&&hm2min(i.data.time)!=null));
+  timed.forEach(i=>{
+    const t=i.data,start=hm2min(t.time),dur=i.type==="ics"?60:tlDur(t);
+    const el=document.createElement("div");
+    el.className="tl-block"+(i.type==="ics"?" ics":"")+(t.done?" done":"");
+    el.style.top=(start/60*TL_HOUR_H)+"px";
+    el.style.height=Math.max(30,dur/60*TL_HOUR_H-3)+"px";
+    if(i.type!=="ics")el.style.setProperty("--bc",colorOf(t));
+    el.innerHTML=`<div class="tb-t">${i.type==="ics"?"📅 ":""}${esc(t.title)}</div><div class="tb-time">${esc(t.time)}${i.type!=="ics"?" – "+min2hm(start+dur):""}</div>`;
+    if(i.type!=="ics"){
+      const h=document.createElement("div");h.className="tb-resize";h.innerHTML="<span></span>";
+      el.appendChild(h);
+      enableTlBlockDrag(el,h,t);
+      el.addEventListener("click",e=>{if(!tlMoved&&!e.target.closest(".tb-resize"))openTaskModal(t.id);});
+    }
+    box.appendChild(el);
+  });
+  /* 今天：当前时间指示线 + 首次进入滚到当前时段附近 */
+  if(ds===todayStr()){
+    const now=new Date(),line=document.createElement("div");
+    line.className="tl-now";
+    line.style.top=((now.getHours()*60+now.getMinutes())/60*TL_HOUR_H)+"px";
+    box.appendChild(line);
+    if(!renderDay._scrolled){
+      renderDay._scrolled=true;
+      requestAnimationFrame(()=>{
+        const y=Math.max(0,(now.getHours()-2)*TL_HOUR_H);
+        const sc=$("#tlScroll");
+        if(sc&&sc.scrollHeight>sc.clientHeight+10)sc.scrollTop=y;
+        else window.scrollTo(0,Math.max(0,$("#tl24").getBoundingClientRect().top+window.scrollY+y-160));
+      });
+    }
+  }
+}
+/* 点击时间轴空白处 → 在对应时段快速新建时间块任务 */
+$("#tl24Blocks").addEventListener("click",e=>{
+  if(e.target!==e.currentTarget||tlMoved)return;
+  const r=e.currentTarget.getBoundingClientRect();
+  const min=Math.floor(((e.clientY-r.top)/TL_HOUR_H*60)/TL_SNAP)*TL_SNAP;
+  openTaskModal(null,{due:state.dayDate,time:min2hm(min)});
+});
+/* 时间轴任务块：整块拖动改开始时间（保持时长）· 底部手柄拖动改时长 */
+function enableTlBlockDrag(el,handle,t){
+  const bind=(target,mode)=>{
+    const down=e=>{
+      if(e.type==="mousedown"&&e.button!==0)return;
+      if(mode==="move"&&e.target.closest(".tb-resize"))return;
+      const isTouch=!!e.touches;
+      const p0=isTouch?e.touches[0]:e;
+      const y0=p0.clientY;
+      const s0=hm2min(t.time)||0,d0=tlDur(t);
+      let active=(mode==="resize"),timer=null;
+      tlMoved=false;
+      delete el.dataset.ns;delete el.dataset.nd;
+      if(mode==="move"&&isTouch)timer=setTimeout(()=>{active=true;el.classList.add("tl-lift");if(navigator.vibrate)navigator.vibrate(15);},260);
+      if(mode==="resize"&&e.cancelable)e.preventDefault();
+      const move=ev=>{
+        const p=ev.touches?ev.touches[0]:ev;
+        const dy=p.clientY-y0;
+        if(!active){
+          if(isTouch){if(Math.abs(dy)>12){cleanup();return;}return;}
+          if(Math.abs(dy)>5)active=true;else return;
+        }
+        if(ev.cancelable)ev.preventDefault();
+        tlMoved=true;
+        const dmin=Math.round(dy/TL_HOUR_H*60/TL_SNAP)*TL_SNAP;
+        if(mode==="move"){
+          const ns=Math.max(0,Math.min(1440-d0,s0+dmin));
+          el.style.top=(ns/60*TL_HOUR_H)+"px";el.dataset.ns=ns;
+        }else{
+          const nd=Math.max(TL_SNAP,Math.min(1440-s0,d0+dmin));
+          el.style.height=Math.max(30,nd/60*TL_HOUR_H-3)+"px";el.dataset.nd=nd;
+        }
+        const tm=el.querySelector(".tb-time");
+        const ns=el.dataset.ns!=null?+el.dataset.ns:s0,nd=el.dataset.nd!=null?+el.dataset.nd:d0;
+        if(tm)tm.textContent=min2hm(ns)+" – "+min2hm(ns+nd);
+      };
+      const up=()=>{
+        clearTimeout(timer);unbind();el.classList.remove("tl-lift");
+        if(tlMoved){
+          const ns=el.dataset.ns!=null?+el.dataset.ns:s0,nd=el.dataset.nd!=null?+el.dataset.nd:d0;
+          t.time=min2hm(ns);t.timeEnd=min2hm(ns+nd);t.allDay=false;
+          save();renderDay();
+          toast("⏰ "+t.time+" – "+t.timeEnd);
+          setTimeout(()=>{tlMoved=false;},60);
+        }
+      };
+      const cleanup=()=>{clearTimeout(timer);unbind();el.classList.remove("tl-lift");};
+      const unbind=()=>{
+        document.removeEventListener("mousemove",move);document.removeEventListener("touchmove",move);
+        document.removeEventListener("mouseup",up);document.removeEventListener("touchend",up);document.removeEventListener("touchcancel",up);
+      };
+      document.addEventListener("mousemove",move);
+      document.addEventListener("touchmove",move,{passive:false});
+      document.addEventListener("mouseup",up);
+      document.addEventListener("touchend",up);
+      document.addEventListener("touchcancel",up);
+    };
+    target.addEventListener("mousedown",down);
+    target.addEventListener("touchstart",down,{passive:mode==="move"});
+  };
+  bind(el,"move");
+  bind(handle,"resize");
+}
+/* 托盘任务 → 长按拖到时间轴，投放即分配时段（默认 1 小时） */
+function enableTlTrayDrag(el,taskId){
+  const down=e=>{
+    if(e.type==="mousedown"&&e.button!==0)return;
+    const isTouch=!!e.touches;
+    const p0=isTouch?e.touches[0]:e;
+    const x0=p0.clientX,y0=p0.clientY;
+    let active=false,g=null,timer=null;
+    const pos=(x,y)=>{if(g){g.style.left=(x-30)+"px";g.style.top=(y-18)+"px";}};
+    const begin=()=>{
+      if(active)return;active=true;tlMoved=true;
+      g=el.cloneNode(true);g.classList.add("tl-ghost");
+      g.style.width=Math.min(el.getBoundingClientRect().width,200)+"px";
+      document.body.appendChild(g);pos(x0,y0);
+      el.classList.add("dragging-source");
+      if(navigator.vibrate)navigator.vibrate(15);
+    };
+    if(isTouch)timer=setTimeout(begin,260);
+    const hoverLine=y=>{
+      const r=$("#tl24Blocks").getBoundingClientRect();
+      let hint=document.getElementById("tlDropHint");
+      if(y>=r.top&&y<=r.bottom){
+        const min=Math.max(0,Math.floor(((y-r.top)/TL_HOUR_H*60)/TL_SNAP)*TL_SNAP);
+        if(!hint){hint=document.createElement("div");hint.id="tlDropHint";$("#tl24Blocks").appendChild(hint);}
+        hint.style.top=(min/60*TL_HOUR_H)+"px";
+        hint.dataset.min=min;
+        hint.textContent=min2hm(min);
+      }else if(hint)hint.remove();
+    };
+    const move=ev=>{
+      const p=ev.touches?ev.touches[0]:ev;
+      if(!active){
+        const dist=Math.hypot(p.clientX-x0,p.clientY-y0);
+        if(isTouch){if(dist>12){cleanup();return;}return;}
+        if(dist>6)begin();else return;
+      }
+      if(ev.cancelable)ev.preventDefault();
+      pos(p.clientX,p.clientY);
+      hoverLine(p.clientY);
+    };
+    const up=()=>{
+      clearTimeout(timer);unbind();
+      const hint=document.getElementById("tlDropHint");
+      if(active&&hint){
+        const min=+hint.dataset.min;
+        const t=state.tasks.find(k=>k.id===taskId);
+        if(t){t.time=min2hm(min);t.timeEnd=min2hm(min+60);t.allDay=false;save();toast("⏰ 已安排到 "+t.time);}
+      }
+      if(hint)hint.remove();
+      if(g)g.remove();
+      el.classList.remove("dragging-source");
+      if(active){renderDay();setTimeout(()=>{tlMoved=false;},60);}
+    };
+    const cleanup=()=>{
+      clearTimeout(timer);unbind();
+      if(g)g.remove();
+      const hint=document.getElementById("tlDropHint");if(hint)hint.remove();
+      el.classList.remove("dragging-source");
+    };
+    const unbind=()=>{
+      document.removeEventListener("mousemove",move);document.removeEventListener("touchmove",move);
+      document.removeEventListener("mouseup",up);document.removeEventListener("touchend",up);document.removeEventListener("touchcancel",up);
+    };
+    document.addEventListener("mousemove",move);
+    document.addEventListener("touchmove",move,{passive:false});
+    document.addEventListener("mouseup",up);
+    document.addEventListener("touchend",up);
+    document.addEventListener("touchcancel",up);
+  };
+  el.addEventListener("mousedown",down);
+  el.addEventListener("touchstart",down,{passive:true});
 }
 
 /* ═══════════ 拖拽系统（强化版） ═══════════ */
@@ -970,16 +1159,16 @@ function drop(x,y){
 
 /* ═══════════ 任务弹窗 ═══════════ */
 let editingId=null,editSubs=[];
-function openTaskModal(id){
+function openTaskModal(id,preset){
   const isNew=!id;
   let t=isNew?null:state.tasks.find(k=>k.id===id);
   editingId=id||null;
   $("#tmTitle").textContent=isNew?"🌸 新建任务":"✏️ 编辑任务";
   $("#mTitle").value=t?t.title:"";
   $("#mNotes").value=t?(t.notes||""):"";
-  $("#mDate").value=t?(t.due||""):(state.todoLayer==="plan"&&state.viewMode==="day"?state.dayDate:"");
+  $("#mDate").value=t?(t.due||""):((preset&&preset.due)||(state.todoLayer==="plan"&&state.viewMode==="day"?state.dayDate:""));
   $("#mDateEnd").value=t?(t.dueEnd||""):"";
-  $("#mTime").value=t?(t.time||""):"";
+  $("#mTime").value=t?(t.time||""):((preset&&preset.time)||"");
   $("#mAllDay").checked=t?!!t.allDay:false;
   $("#mPri").value=t&&t.priority!=null?String(t.priority):"";
   $("#mTags").value=t?(t.tags||[]).join(", "):"";
