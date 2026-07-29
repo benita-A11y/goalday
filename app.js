@@ -1259,22 +1259,30 @@ function renderHabitList(){
     const on=!!h.checks[todayStr()];
     chk.className="hchk"+(on?" on":"");
     chk.setAttribute("aria-label",on?"已打卡":"打卡");
-    chk.addEventListener("click",()=>{
+    chk.addEventListener("click",e=>{
+      e.stopPropagation();   /* 勾选按钮只负责打卡，不触发卡片编辑 */
       if(h.checks[todayStr()])delete h.checks[todayStr()];
       else{h.checks[todayStr()]=1;toast("打卡成功 ✅ 连续 "+(streakOf(h))+" 天！");if(navigator.vibrate)navigator.vibrate(15);}
       renderHabit();save();
     });
     card.appendChild(chk);
+    card.style.cursor="pointer";
     card.addEventListener("contextmenu",e=>{e.preventDefault();delHabit(h.id);});
-    let tm;
-    card.addEventListener("touchstart",e=>{if(e.target===chk)return;tm=setTimeout(()=>delHabit(h.id),700);},{passive:true});
+    let tm,lp=false;
+    card.addEventListener("touchstart",e=>{if(e.target===chk)return;lp=false;tm=setTimeout(()=>{lp=true;delHabit(h.id);},650);},{passive:true});
     card.addEventListener("touchend",()=>clearTimeout(tm));
     card.addEventListener("touchmove",()=>clearTimeout(tm));
+    /* 整块卡片（除右侧勾选按钮）点击 → 打开编辑弹窗；勾选按钮已 stopPropagation */
+    card.addEventListener("click",e=>{
+      if(e.target===chk)return;
+      if(lp){lp=false;return;}          /* 长按删除后抑制误触编辑 */
+      openHabitModal(h);
+    });
     box.appendChild(card);
   });
   const add=document.createElement("button");
   add.className="drawer-add";add.textContent="➕ 新增习惯";
-  add.addEventListener("click",openHabitModal);
+  add.addEventListener("click",()=>openHabitModal());
   box.appendChild(add);
 }
 function delHabit(id){
@@ -1315,17 +1323,36 @@ function renderHabitHistory(){
   box.appendChild(sum);
 }
 let habitColor=PALETTE[3];
-function openHabitModal(){
-  $("#hmName").value="";$("#hmEmoji").value="";
-  habitColor=PALETTE[3];
+let editingHabit=null;
+function openHabitModal(habit){
+  editingHabit=habit||null;
+  const h3=$("#habitModal").querySelector("h3");
+  if(habit){
+    $("#hmName").value=habit.name;
+    $("#hmEmoji").value=habit.emoji||"";
+    habitColor=habit.color||PALETTE[3];
+    if(h3)h3.textContent="✏️ 编辑习惯";
+    $("#hmSave").textContent="保存";
+  }else{
+    $("#hmName").value="";$("#hmEmoji").value="";
+    habitColor=PALETTE[3];
+    if(h3)h3.textContent="🌱 新增习惯";
+    $("#hmSave").textContent="创建";
+  }
   buildSwatches("#hmColors",c=>habitColor=c);
   showModal("habitModal");
 }
 $("#hmSave").addEventListener("click",()=>{
   const name=$("#hmName").value.trim();
   if(!name){toast("请填写习惯名称 ✏️");return;}
-  state.habits.push({id:uid(),name,emoji:$("#hmEmoji").value.trim()||"🌱",color:habitColor,checks:{},createdAt:Date.now()});
-  closeModal();renderHabit();save();toast("习惯已创建 🌱");
+  const emoji=$("#hmEmoji").value.trim()||"🌱";
+  if(editingHabit){
+    editingHabit.name=name;editingHabit.emoji=emoji;editingHabit.color=habitColor;
+    closeModal();renderHabit();save();toast("习惯已更新 ✏️");
+  }else{
+    state.habits.push({id:uid(),name,emoji,color:habitColor,checks:{},createdAt:Date.now()});
+    closeModal();renderHabit();save();toast("习惯已创建 🌱");
+  }
 });
 $("#hmCancel").addEventListener("click",closeModal);
 
