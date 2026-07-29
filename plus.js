@@ -9,8 +9,6 @@
 const CONFIG = {
   API_BASE: "",   // 例如 "https://your.api/goalday"；留空则使用内置精选 + 仅本机存储
 };
-/* 苹果设备保留原生 emoji（本就是苹果风）；非苹果设备用 Twemoji 图片替换，避免显示系统原生 emoji */
-const isApple = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "");
 
 /* 数据归一化（老用户兜底） */
 if(!state.revMode)state.revMode="data";
@@ -384,13 +382,7 @@ window.renderHabit=function(){_renderHabit();if(habitTab==="main")renderMoodPick
 const _renderAll=window.renderAll;
 window.renderAll=function(){_renderAll();applyEmoji();};
 
-/* ═══════════ emoji 图片层（非苹果设备） ═══════════ */
-function applyEmoji(){
-  if(isApple)return;
-  if(window.twemoji&&window.twemoji.parse){
-    try{window.twemoji.parse(document.body,{folder:"svg",base:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/",ext:".svg"});}catch(e){}
-  }
-}
+/* ═══════════ emoji 图片层（非苹果设备）：applyEmoji 已统一在 app.js 定义 ═══════════ */
 window.addEventListener("load",applyEmoji);
 
 /* 启动：刷新当前页以应用新模块 */
