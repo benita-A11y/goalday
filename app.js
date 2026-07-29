@@ -138,6 +138,8 @@ function save(){
 const PAGES={todo:"page-todo",habit:"page-habit",focus:"page-focus",review:"page-review",settings:"page-settings"};
 function switchTab(tab){
   state.activeTab=tab;
+  /* 离开灵感收集箱多选态时清理工具条 */
+  inspSel=null;const sb=$("#inspSelBar");if(sb)sb.remove();
   Object.entries(PAGES).forEach(([k,id])=>$("#"+id).classList.toggle("active",k===tab));
   $$("#tabbar button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
   const inPlan=(tab==="todo"&&state.todoLayer==="plan");
@@ -189,7 +191,7 @@ function delList(id){
     renderDrawer();renderTodo();save();
   }
 }
-function openDrawer(){renderDrawer();$("#drawer").classList.add("show");$("#drawerMask").classList.add("show");}
+function openDrawer(){inspSel=null;const sb=$("#inspSelBar");if(sb)sb.remove();renderDrawer();$("#drawer").classList.add("show");$("#drawerMask").classList.add("show");}
 function closeDrawer(){$("#drawer").classList.remove("show");$("#drawerMask").classList.remove("show");}
 $("#drawerBtn").addEventListener("click",openDrawer);
 $("#drawerBtn2").addEventListener("click",openDrawer);
