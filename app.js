@@ -26,7 +26,7 @@ function md(ds){return ds?ds.slice(5).replace("-","/"):"";}
 
 /* ───────── 状态 & 迁移 ───────── */
 function defaultState(){
-  const l1=uid(),l2=uid(),l3=uid();
+  const l1=uid(),l2=uid(),l3=uid(),l4=uid();
   return {
     version:2,
     lists:[
@@ -112,6 +112,11 @@ let saveTimer=null;
 
 /* ───────── 通用 ───────── */
 function esc(s){const d=document.createElement("div");d.textContent=s||"";return d.innerHTML;}
+/* 非苹果设备用 Twemoji 替换原生 emoji（苹果设备保留系统原生）；自包含，避免初始化依赖 plus.js */
+function applyEmoji(){
+  if(/Mac|iPhone|iPad|iPod/.test(navigator.platform||navigator.userAgent||""))return;
+  if(window.twemoji&&window.twemoji.parse){try{window.twemoji.parse(document.body,{folder:"svg",base:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/",ext:".svg"});}catch(e){}}
+}
 function listOf(id){return state.lists.find(l=>l.id===id);}
 function colorOf(t){const l=listOf(t.listId);return l?l.color:"#b8aeeb";}
 function activeTasks(){return state.tasks.filter(t=>!t.abandoned);}
