@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>GoalDay · 时间管理</title>
+<meta name="description" content="GoalDay 周计划 × 氢时光 全能时间管理：GTD清单·番茄钟·习惯打卡·数据复盘，离线可用">
+<meta name="theme-color" content="#F5F0EB">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="GoalDay">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ═══════════ Tab1 待办 · 收集箱 + 双栏周计划 ═══════════ -->
+<section class="page" id="page-todo">
+  <!-- 第一层：收集箱（清单列表） -->
+  <div id="todoHome">
+    <header class="page-head">
+      <button class="icon-btn" id="drawerBtn">☰</button>
+      <h1 id="todoTitle">📋 待办</h1>
+    </header>
+    <div class="scroll-body" id="todoBody"></div>
+  </div>
+
+  <!-- 第二层：双栏周计划执行页（核心） -->
+  <div id="todoPlan" hidden>
+    <div class="view-bar">
+      <div class="vrow1">
+        <button class="icon-btn" id="drawerBtn2">☰</button>
+        <button class="icon-btn" id="planBack">‹</button>
+        <span class="wk-title">🗓️ 周计划</span>
+        <div class="wtabs">
+          <button id="wtPlan" class="active">周计划</button>
+          <button id="wtPool">清单</button>
+        </div>
+      </div>
+      <div class="vrow2">
+        <span id="weekNum">第—周</span>
+        <span class="wk-swap" id="prevWeek">‹</span>
+        <span class="wk-swap" id="nextWeek">›</span>
+        <button id="todayBtn" class="mini-btn">回本周</button>
+        <span id="weekRange" style="margin-left:auto;">—</span>
+      </div>
+    </div>
+    <div class="goal-row">
+      <span class="ico">★</span>
+      <input id="goalInput" type="text" maxlength="60" placeholder="本周最重要目标主题…">
+    </div>
+    <div class="view-switch" id="viewSwitch">
+      <button data-view="week" class="active">📅 周视图</button>
+      <button data-view="day">📆 日视图</button>
+    </div>
+    <div class="vwrap" id="weekWrap">
+      <div class="week-cols">
+        <div class="cal-panel" id="calPanel">
+          <div class="week-grid" id="weekGrid"></div>
+          <p class="hint">💡 长按拖拽到日期 · 拖到 ‹ › 跨周 · 拖到下方标记完成</p>
+        </div>
+        <div class="splitter" id="splitter" title="按住拖动调整两栏宽度"><span class="grip"></span></div>
+        <div class="pool-panel" id="poolPanel">
+          <div class="pool-head">
+            <div class="pool-tt" id="poolTrigger">
+              <span class="dot" id="poolDot"></span>
+              <span id="poolName">收集箱</span>
+              <span class="caret">⌄</span>
+            </div>
+            <div class="pool-menu" id="poolMenu"></div>
+          </div>
+          <div class="quick-add">
+            <input id="quickInput" type="text" maxlength="80" placeholder="＋ 快速添加待办…">
+          </div>
+          <div class="pool-list" id="poolList"></div>
+        </div>
+      </div>
+      <button id="fabView" title="切换 概览/详情">›</button>
+    </div>
+    <div class="vwrap" id="dayWrap" hidden>
+      <div class="sub-head">
+        <button id="dayPrev" class="round-btn">‹</button>
+        <b id="dayTitle">今天</b>
+        <button id="dayNext" class="round-btn">›</button>
+        <button id="dayToday" class="mini-btn">今天</button>
+      </div>
+      <div class="panel" id="dayTimeline"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 抽屉侧边栏 -->
+<div id="drawerMask"></div>
+<aside id="drawer">
+  <div class="drawer-title">🗓️ GoalDay</div>
+  <div class="drawer-sec">系统清单</div>
+  <div id="sysLists"></div>
+  <div class="drawer-sec">我的清单</div>
+  <div id="userLists"></div>
+  <button id="addListBtn" class="drawer-add">➕ 新增清单</button>
+</aside>
+
+<!-- ═══════════ Tab2 打卡 ═══════════ -->
+<section class="page" id="page-habit">
+  <header class="page-head center"><h1>✅ 打卡</h1></header>
+  <div class="sub-tabs">
+    <button id="hbTab1" class="active">打卡</button>
+    <button id="hbTab2">历史记录</button>
+  </div>
+  <div class="scroll-body">
+    <div id="habitMain">
+      <div id="moodPicker"></div>
+      <div id="habitList"></div>
+      <div class="panel" style="margin:0 14px 12px">
+        <h3 class="ptt">🗓️ 本月打卡热力图</h3>
+        <div class="heatmap" id="habitHeatmap"></div>
+        <div class="hm-legend">
+          <span><i class="d" style="background:#F0EDEA"></i>0%</span>
+          <span><i class="d" style="background:#D9EEFF"></i>1–33%</span>
+          <span><i class="d" style="background:#88D8DB"></i>34–66%</span>
+          <span><i class="d" style="background:#71B7ED"></i>67–100%</span>
+          <span class="hm-legend-tip">· 圆点＝当日打卡习惯（同色＝该习惯色）</span>
+        </div>
+      </div>
+    </div>
+    <div id="habitHistory" hidden></div>
+  </div>
+</section>
+
+<!-- ═══════════ Tab3 专注 · 番茄钟 ═══════════ -->
+<section class="page" id="page-focus">
+  <header class="page-head center"><h1>🍅 专注</h1></header>
+  <div class="focus-body">
+    <div class="ring-box">
+      <svg viewBox="0 0 220 220" id="focusRing">
+        <circle cx="110" cy="110" r="96" fill="none" stroke="#F0E7DB" stroke-width="12"/>
+        <circle cx="110" cy="110" r="96" fill="none" stroke="url(#rg)" stroke-width="12"
+          stroke-linecap="round" id="ringFg" transform="rotate(-90 110 110)"/>
+        <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#71b7ed"/><stop offset="100%" stop-color="#88d8db"/>
+        </linearGradient></defs>
+      </svg>
+      <div class="ring-center">
+        <div id="focusTime">25:00</div>
+        <div id="focusState">准备专注</div>
+      </div>
+    </div>
+    <div class="focus-ctrl">
+      <button id="focusStart" class="big-btn">▶️ 开始专注</button>
+      <button id="focusReset" class="ghost-btn">⏹ 重置</button>
+    </div>
+    <div class="panel focus-opts">
+      <label>⏱️ 专注时长 <select id="selFocusMin"></select></label>
+      <label>☕ 休息时长 <select id="selBreakMin"></select></label>
+      <label>🌊 白噪音 <input type="checkbox" id="noiseToggle"></label>
+      <label>🔗 绑定任务 <select id="focusTask"><option value="">不绑定</option></select></label>
+    </div>
+    <div class="stat-cards" id="focusTodayStats"></div>
+  </div>
+</section>
+
+<!-- ═══════════ Tab4 复盘 ═══════════ -->
+<section class="page" id="page-review">
+  <header class="page-head center"><h1>📊 复盘</h1></header>
+  <div class="sub-tabs" id="revDims">
+    <button data-d="day">日</button>
+    <button data-d="week" class="active">周</button>
+    <button data-d="month">月</button>
+    <button data-d="year">年</button>
+  </div>
+  <div class="sub-tabs rev-modes" id="revModes">
+    <button data-m="data" class="active">📈 数据复盘</button>
+    <button data-m="journal">📝 每日手帐</button>
+  </div>
+  <div class="scroll-body">
+    <div id="dataView">
+      <div id="revRangeLabel" class="rev-range"></div>
+      <div class="stat-cards" id="revSummary"></div>
+      <div class="panel"><h3 class="ptt">🧁 清单完成分布</h3><canvas id="revDonut" height="210"></canvas><div id="revDonutLegend" class="legend"></div></div>
+      <div class="panel"><h3 class="ptt">📈 完成 vs 计划</h3><canvas id="revLine" height="190"></canvas></div>
+      <div class="panel praise" id="revPraise"></div>
+      <div class="panel improve" id="revImprove"></div>
+      <div class="panel" id="revMoodPanel" hidden><h3 class="ptt">💗 心情分布</h3><canvas id="revMoodDonut" height="200"></canvas><div id="revMoodLegend" class="legend"></div></div>
+      <div class="panel" id="revMoodTrendPanel" hidden><h3 class="ptt">🌈 心情趋势</h3><canvas id="revMoodLine" height="180"></canvas></div>
+      <div class="panel"><h3 class="ptt">🗓️ 本月日历</h3><div class="heatmap" id="revCal"></div></div>
+    </div>
+    <div id="journalView" hidden></div>
+    <div id="annualEntry"></div>
+  </div>
+</section>
+
+<!-- ═══════════ Tab5 设置 ═══════════ -->
+<section class="page" id="page-settings">
+  <header class="page-head center"><h1>⚙️ 设置</h1></header>
+  <div class="scroll-body">
+    <div class="panel set-group">
+      <h3 class="ptt">☁️ iCloud 同步</h3>
+      <p class="set-note">网页版通过「备份文件 + iCloud云盘」跨设备同步：导出备份保存到 iCloud云盘，在其他设备恢复即可。</p>
+      <button class="set-btn" id="setExport">💾 导出备份（存 iCloud云盘）</button>
+      <button class="set-btn" id="setImport">📂 恢复备份</button>
+    </div>
+    <div class="panel set-group">
+      <h3 class="ptt">📅 系统日历</h3>
+      <p class="set-note">单向只读导入，不回写系统日历。iPhone 日历 → 共享/导出 .ics 后在此导入。</p>
+      <button class="set-btn" id="setIcs">📥 导入系统日历 (.ics)</button>
+      <button class="set-btn" id="setClearIcs">🧹 清空已导入日历</button>
+    </div>
+    <div class="panel set-group">
+      <button class="entry-card" id="openPalette">
+        <span class="ec-ico">🎨</span>
+        <span class="ec-main"><b>调色盘</b><small>管理你的专属色彩灵感库</small></span>
+        <span class="ec-go">›</span>
+      </button>
+    </div>
+    <div class="panel set-group">
+      <h3 class="ptt">🎨 主题配色</h3>
+      <div class="theme-list" id="themeList">
+        <button class="theme-item" data-t="princess"><span class="tdot" style="background:linear-gradient(135deg,#FFF5F7,#FFD6E0)"></span><span class="tname">👑 公主色系</span><small>粉嫩甜心</small></button>
+        <button class="theme-item" data-t="flower"><span class="tdot" style="background:linear-gradient(135deg,#FFF8F0,#FFE0D6)"></span><span class="tname">💐 花束色系</span><small>缤纷柔和</small></button>
+        <button class="theme-item" data-t="morandi"><span class="tdot" style="background:linear-gradient(135deg,#F5F0EB,#D5CFC5)"></span><span class="tname">🍂 莫兰迪色系</span><small>高级灰调</small></button>
+        <button class="theme-item" data-t="macaron"><span class="tdot" style="background:linear-gradient(135deg,#FFFDF5,#D9EEFF)"></span><span class="tname">🍡 马卡龙色系</span><small>奶fufu</small></button>
+      </div>
+      <div class="theme-preview" id="themePreview"></div>
+    </div>
+    <div class="panel set-group">
+      <h3 class="ptt">🔔 智能提醒</h3>
+      <p class="set-note">开启后，任务到达截止时间时（应用打开状态下）弹出提醒通知。</p>
+      <button class="set-btn" id="setNotify">🔔 开启通知权限</button>
+    </div>
+    <div class="panel set-group">
+      <h3 class="ptt">📱 添加到主屏幕（离线独立运行）</h3>
+      <p class="set-note">iPhone：Safari 打开本页 → 分享 → 「添加到主屏幕」。之后完全断网也可正常使用，数据保存在本机。</p>
+    </div>
+    <div class="panel set-group">
+      <h3 class="ptt">ℹ️ 关于</h3>
+      <p class="set-note">GoalDay v10 · 待办双栏（整页全局滚动·可拖拽分割线·拖拽剪切排程）× 打卡（情绪标签）× 番茄钟 × 复盘（每日手帐时间轴·心情图表·年度回顾）× 调色盘 × 灵感收集箱<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA<br>右侧清单默认「收集箱」= 未排期任务池。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 底部 Tab 导航 ═══════════ -->
+<nav id="tabbar">
+  <button data-tab="todo" class="active"><i>📋</i><span>待办</span></button>
+  <button data-tab="habit"><i>✅</i><span>打卡</span></button>
+  <button data-tab="focus"><i>🍅</i><span>专注</span></button>
+  <button data-tab="review"><i>📊</i><span>复盘</span></button>
+  <button data-tab="settings"><i>⚙️</i><span>设置</span></button>
+</nav>
+
+<button id="fabAdd" title="新增">➕</button>
+<div id="doneDrop">✅ 拖到这里标记完成</div>
+
+<!-- ═══════════ 弹窗 ═══════════ -->
+<div class="mask" id="mask">
+  <!-- 任务编辑 -->
+  <div class="modal" id="taskModal">
+    <h3 id="tmTitle">✏️ 编辑任务</h3>
+    <label>标题（可带 Emoji）<input id="mTitle" type="text" maxlength="80" placeholder="例如：🏃 晨跑 5 公里"></label>
+    <label>备注<textarea id="mNotes" rows="2" placeholder="写点备注…"></textarea></label>
+    <div class="modal-grid">
+      <label>截止日期<input id="mDate" type="date"></label>
+      <label>结束日期(跨天)<input id="mDateEnd" type="date"></label>
+    </div>
+    <div class="modal-grid">
+      <label>截止时间<input id="mTime" type="time"></label>
+      <label class="check-line" style="margin-top:22px"><input id="mAllDay" type="checkbox"> 全天</label>
+    </div>
+    <div class="modal-grid">
+      <label>所属清单<select id="mList"></select></label>
+      <label>优先级<select id="mPri">
+        <option value="">无</option><option value="0">P0 重要紧急</option><option value="1">P1 重要不紧急</option>
+        <option value="2">P2 紧急不重要</option><option value="3">P3 不重要不紧急</option>
+      </select></label>
+    </div>
+    <label>标签（逗号分隔）<input id="mTags" type="text" placeholder="例如：深度工作, 阅读"></label>
+    <label>子任务</label>
+    <div id="mSubs"></div>
+    <div class="sub-add"><input id="mSubInput" type="text" placeholder="＋ 添加子任务，回车确认" maxlength="60"></div>
+    <div class="state-line">
+      <label class="check-line"><input id="mDone" type="checkbox"> ✅ 已完成</label>
+      <label class="check-line"><input id="mAbandon" type="checkbox"> ❌ 已放弃</label>
+    </div>
+    <div class="modal-btns">
+      <button id="mDelete" class="danger">删除</button><span class="flex1"></span>
+      <button id="mCancel">取消</button><button id="mSave" class="primary">保存</button>
+    </div>
+  </div>
+
+  <!-- 新增清单 -->
+  <div class="modal" id="listModal">
+    <h3>📚 新增清单</h3>
+    <label>清单名称<input id="lmName" type="text" maxlength="10" placeholder="例如：健康养生"></label>
+    <label>图标 Emoji<input id="lmEmoji" type="text" maxlength="2" placeholder="🌿"></label>
+    <label>标识色（必选）</label>
+    <div class="swatches" id="lmColors"></div>
+    <div class="modal-btns"><span class="flex1"></span><button id="lmCancel">取消</button><button id="lmSave" class="primary">创建</button></div>
+  </div>
+
+  <!-- 新增习惯 -->
+  <div class="modal" id="habitModal">
+    <h3>🌱 新增习惯</h3>
+    <label>习惯名称<input id="hmName" type="text" maxlength="12" placeholder="例如：早起喝水"></label>
+    <label>图标 Emoji<input id="hmEmoji" type="text" maxlength="2" placeholder="💧"></label>
+    <label>标识色</label>
+    <div class="swatches" id="hmColors"></div>
+    <div class="modal-btns"><span class="flex1"></span><button id="hmCancel">取消</button><button id="hmSave" class="primary">创建</button></div>
+  </div>
+</div>
+
+<input type="file" id="icsFile" accept=".ics,text/calendar" hidden>
+<input type="file" id="jsonFile" accept=".json,application/json" hidden>
+<input type="file" id="palettePhoto" accept="image/*" hidden>
+<input type="file" id="inspPhoto" accept="image/*" hidden>
+<input type="file" id="annualPhoto" accept="image/*" hidden>
+<div id="toast"></div>
+
+<!-- ═══════════ 调色盘（设置内入口 · 深层页） ═══════════ -->
+<section class="page page-extra" id="palettePage" hidden>
+  <header class="page-head"><button class="icon-btn" data-close="palettePage">‹</button><h1>🎨 调色盘</h1></header>
+  <div class="scroll-body">
+    <div class="panel pal-inspire">
+      <h3 class="ptt">✨ 灵感补给 <button class="mini-btn" id="inspireRefresh" style="float:right">🔄 换一批</button></h3>
+      <div class="inspire-stream" id="inspireStream"></div>
+    </div>
+    <div class="panel pal-fav">
+      <h3 class="ptt">📥 我的收藏 <button class="mini-btn" id="addColorBtn" style="float:right">➕ 新建颜色</button></h3>
+      <div id="colorForm" class="color-form" hidden>
+        <input type="color" id="cfHex" value="#88d8db" style="width:44px;height:34px;border:0;background:none">
+        <input type="text" id="cfVal" value="#88d8db" maxlength="7" style="width:84px">
+        <input type="text" id="cfName" placeholder="颜色名称" maxlength="12" style="flex:1;min-width:0">
+        <button class="mini-btn" id="cfSave">保存</button>
+      </div>
+      <div id="favList"></div>
+      <div id="colorList"></div>
+    </div>
+    <div class="panel pal-extract">
+      <h3 class="ptt">📷 今日灵感 · 照片取色</h3>
+      <button class="set-btn" id="pickPhotoBtn">📷 上传图片取色</button>
+      <div id="extractOut"></div>
+    </div>
+    <div class="panel">
+      <h3 class="ptt">☁️ 云同步</h3>
+      <p class="set-note">收藏与配色通过你的账号云同步（需配置后端 API）。未配置时仅保存在本机，离线可用。</p>
+      <button class="set-btn" id="paletteSync">🔄 同步到云端</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 灵感收集箱（待办内入口 · 深层页） ═══════════ -->
+<section class="page page-extra" id="inspPage" hidden>
+  <header class="page-head"><button class="icon-btn" data-close="inspPage">‹</button><h1>💡 灵感收集箱</h1></header>
+  <div class="scroll-body" id="inspBody"></div>
+  <div class="insp-bar">
+    <input id="inspInput" type="text" placeholder="快速记录一闪而过的念头…" maxlength="200">
+    <button id="inspAddBtn" title="添加图片便签">📎</button>
+  </div>
+</section>
+
+<!-- ═══════════ 年度回顾（复盘内入口 · 深层页） ═══════════ -->
+<section class="page page-extra" id="annualPage" hidden>
+  <header class="page-head"><button class="icon-btn" data-close="annualPage">‹</button><h1>✨ 年度回顾</h1></header>
+  <div class="scroll-body" id="annualBody"></div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
+<script src="app.js"></script>
+<script src="plus.js"></script>
+</body>
+</html>
