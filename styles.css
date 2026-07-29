@@ -515,6 +515,32 @@ body.dragging *{cursor:grabbing!important;}
   .tcard.pool-card .body .tt{font-size:12.5px;white-space:normal;overflow:visible;word-break:break-word;overflow-wrap:anywhere;}
   .tcard.pool-card .body .nt{display:none;}
   .hint{font-size:10.5px;}
+
+  /* v15：周计划手机端「一屏化」——双栏填满可视高度，整容器禁止滚动，仅任务列表局部滚动 */
+  #page-todo{padding-bottom:0;}
+  #todoPlan:not([hidden]){
+    position:fixed;left:0;right:0;top:0;
+    bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;
+    max-width:none;margin:0;padding:0;overflow:hidden;z-index:1;
+  }
+  #todoPlan .view-bar{padding-top:env(safe-area-inset-top);}
+  #todoPlan .view-bar,
+  #todoPlan .goal-row,
+  #todoPlan .view-switch{flex:0 0 auto;}
+  #weekWrap{flex:1 1 auto;min-height:0;display:flex;}
+  #weekWrap .week-cols{flex:1;min-width:0;overflow:hidden;}
+  .cal-panel{display:flex;flex-direction:column;overflow:hidden;}
+  .week-grid{flex:1 1 auto;min-height:0;overflow:hidden;}
+  .day-cell{
+    flex:1 1 0;min-height:0;padding:5px 8px;
+    display:grid;grid-template-columns:30px 1fr;gap:6px;align-items:start;
+    overflow:hidden;border-bottom:.5px solid var(--line);
+  }
+  .day-cell:last-child{border-bottom:0;}
+  .chips{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .pool-panel{display:flex;flex-direction:column;overflow:hidden;}
+  .pool-list{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 }
 @media (min-width:821px){
   .pool-panel{position:relative;}
