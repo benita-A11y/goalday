@@ -186,17 +186,10 @@ h1,h3,h4{margin:0;}
   max-width:1080px;margin:0 auto;
   padding-bottom:calc(var(--tabbar-h) + 26px + env(safe-area-inset-bottom));
 }
+/* v16：周视图/日程视图是两个独立界面，严格互斥显示（hidden 必须生效，杜绝日面板漏到周视图底部） */
 #weekWrap,#dayWrap{display:block;}
+#weekWrap[hidden],#dayWrap[hidden]{display:none!important;}
 #weekWrap .week-cols{display:flex;}
-#dayTimeline{/* 日视图同样随整页全局滚动，不再内部独立滚动 */}
-
-/* 周计划主体 */
-.goal-row{
-  display:flex;align-items:center;gap:9px;margin:8px 18px 6px;
-}
-.goal-row input{flex:1;border:0;background:transparent;font-size:15px;font-weight:600;color:var(--ink);outline:none;letter-spacing:-.1px;}
-.goal-row input::placeholder{color:var(--ink-3);font-weight:400;}
-.goal-row .ico{color:var(--ink-soft);font-size:14px;}
 
 /* 双栏容器：左 周历 · 右 清单池，flex 布局 + 可拖拽分割线，两栏永远并排，内容自然撑开不截断 */
 .week-cols{display:flex;background:var(--bg);border-radius:var(--r) var(--r) 0 0;overflow:hidden;box-shadow:var(--shadow);}
@@ -301,13 +294,69 @@ body.col-resizing *{cursor:col-resize!important;}
 }
 body.view-full #fabView{transform:rotate(90deg);}
 
-/* 日视图 */
-.sub-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:15px;padding:0 14px;}
+/* ═══ v16 日程（24 小时时间轴）视图 · 手帐质感 ═══ */
+.sub-head{display:flex;align-items:center;gap:10px;margin:8px 0 8px;font-size:15px;padding:0 14px;}
 .sub-head b{flex:1;text-align:center;font-weight:600;}
-.tl-row{display:flex;gap:10px;padding:8px 4px;border-bottom:.5px solid var(--line);}
-.tl-row:last-child{border-bottom:0;}
-.tl-time{width:52px;flex:none;font-size:12px;color:var(--ink-soft);font-weight:500;padding-top:3px;font-variant-numeric:tabular-nums;}
-.tl-body{flex:1;display:flex;flex-direction:column;gap:5px;}
+/* 顶部托盘：当日未安排时间的任务 */
+.tl-tray{margin:0 14px 8px;background:var(--bg);border:1px dashed var(--line);border-radius:14px;padding:8px 10px;}
+.tl-tray-tt{font-size:11px;color:var(--ink-soft);font-weight:500;margin-bottom:6px;}
+.tl-tray-list{display:flex;flex-wrap:wrap;gap:6px;}
+.tl-tray-chip{
+  display:inline-flex;align-items:center;gap:6px;max-width:100%;
+  background:var(--bg-soft);border:1px solid var(--line);border-radius:999px;
+  padding:5px 11px;font-size:12.5px;font-weight:500;color:var(--ink);
+  user-select:none;-webkit-user-select:none;cursor:grab;
+}
+.tl-tray-chip .dd{width:8px;height:8px;border-radius:50%;background:var(--dot,var(--accent));flex:none;}
+.tl-tray-chip .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw;}
+.tl-tray-chip.done .t{text-decoration:line-through;color:var(--ink-soft);}
+.tl-tray-chip.dragging-source{opacity:.35;}
+.tl-ghost{
+  position:fixed;z-index:130;pointer-events:none;opacity:.92;
+  transform:scale(1.05) rotate(-1.5deg);box-shadow:0 10px 26px rgba(0,0,0,.2);
+}
+/* 24h 轴主体 */
+.tl-scroll{padding:0 14px calc(var(--tabbar-h) + 20px + env(safe-area-inset-bottom));}
+.tl24{
+  position:relative;background:var(--bg);border-radius:var(--r);box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.tl24-hours{position:absolute;inset:0;pointer-events:none;}
+.tl-hr{position:absolute;left:0;right:0;height:0;border-top:.5px solid var(--line);}
+.tl-hr .hlab{
+  position:absolute;left:8px;top:-7px;font-size:10.5px;color:var(--ink-3);font-weight:500;
+  font-variant-numeric:tabular-nums;background:var(--bg);padding-right:4px;line-height:14px;
+}
+.tl24-blocks{position:absolute;top:0;bottom:0;left:52px;right:8px;}
+/* 任务块：莫兰迪圆角卡片 */
+.tl-block{
+  position:absolute;left:0;right:0;border-radius:11px;padding:5px 10px 4px;overflow:hidden;
+  background:color-mix(in srgb,var(--bc,var(--accent)) 16%,var(--bg));
+  border:1px solid color-mix(in srgb,var(--bc,var(--accent)) 38%,var(--line));
+  border-left:4px solid var(--bc,var(--accent));
+  box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;
+  user-select:none;-webkit-user-select:none;touch-action:pan-y;
+  transition:box-shadow .15s;
+}
+.tl-block.tl-lift{box-shadow:0 8px 22px rgba(0,0,0,.18);z-index:5;opacity:.95;}
+.tl-block .tb-t{font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.35;white-space:normal;word-break:break-word;}
+.tl-block .tb-time{font-size:10.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums;margin-top:1px;}
+.tl-block.done{opacity:.55;}
+.tl-block.done .tb-t{text-decoration:line-through;color:var(--ink-soft);}
+.tl-block.ics{background:var(--bg-soft);border-style:dashed;border-left-style:solid;cursor:default;}
+.tl-block .tb-resize{
+  position:absolute;left:0;right:0;bottom:0;height:14px;display:flex;align-items:flex-end;justify-content:center;
+  cursor:ns-resize;touch-action:none;
+}
+.tl-block .tb-resize span{width:26px;height:3.5px;border-radius:99px;background:color-mix(in srgb,var(--bc,var(--accent)) 55%,transparent);margin-bottom:3px;}
+/* 当前时间指示线 */
+.tl-now{position:absolute;left:-6px;right:0;height:0;border-top:1.5px solid var(--red);z-index:3;pointer-events:none;}
+.tl-now::before{content:"";position:absolute;left:-4px;top:-4px;width:7px;height:7px;border-radius:50%;background:var(--red);}
+/* 拖放位置提示线 */
+#tlDropHint{
+  position:absolute;left:0;right:0;height:0;border-top:2px dashed var(--accent);z-index:6;pointer-events:none;
+  font-size:10.5px;color:var(--accent);font-weight:600;line-height:1;padding-top:2px;
+}
 
 /* ═══ 专注 ═══ */
 .focus-body{display:flex;flex-direction:column;align-items:center;gap:18px;padding:24px 18px 0;}
@@ -496,8 +545,6 @@ body.dragging *{cursor:grabbing!important;}
 @media (max-width:820px){
   /* 窄屏：双栏布局已由全局 flex 规则保证永远并排，这里只做字号/间距微调。
      关键：任务文字自动换行，绝不截断、绝不把双栏堆叠成上下。 */
-  .goal-row{margin:6px 12px 4px;}
-  .goal-row input{font-size:14px;}
   .view-switch{padding:calc(8px + env(safe-area-inset-top)) 14px 4px;}
   .day-cell{padding:9px 8px 10px;grid-template-columns:30px 1fr;gap:7px;}
   .day-num{font-size:16px;}
@@ -526,10 +573,13 @@ body.dragging *{cursor:grabbing!important;}
   }
   #todoPlan .view-bar{padding-top:env(safe-area-inset-top);}
   #todoPlan .view-bar,
-  #todoPlan .goal-row,
   #todoPlan .view-switch{flex:0 0 auto;}
-  #weekWrap{flex:1 1 auto;min-height:0;display:flex;}
+  #weekWrap:not([hidden]){flex:1 1 auto;min-height:0;display:flex;}
   #weekWrap .week-cols{flex:1;min-width:0;overflow:hidden;}
+  /* v16：日程时间轴页 —— 头部/托盘固定，24h 轴内部滚动 */
+  #dayWrap:not([hidden]){flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+  #dayWrap .sub-head,#dayWrap .tl-tray{flex:0 0 auto;}
+  .tl-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .cal-panel{display:flex;flex-direction:column;overflow:hidden;}
   .week-grid{flex:1 1 auto;min-height:0;overflow:hidden;}
   .day-cell{
