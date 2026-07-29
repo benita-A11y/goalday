@@ -815,3 +815,133 @@ img.emoji{height:1.15em;width:1.15em;vertical-align:-.18em;margin:0 .02em;}
 .clear-data .cd-t{font-size:14.5px;font-weight:600;color:var(--red);}
 .clear-data .cd-s{font-size:12px;color:var(--ink-soft);}
 .app-ver{text-align:center;font-size:11px;color:var(--ink-3);margin-top:18px;}
+
+/* ═══════════ v14 · 灵动岛暗边修复 / 灵感收集箱键盘条 / 调色盘升级 ═══════════ */
+
+/* 固定全屏背景层：覆盖灵动岛/刘海安全区，杜绝暗边 */
+.bg-fix{position:fixed;inset:0;background:var(--bar);z-index:-1;transition:background-color .5s ease;}
+/* 主题/主色切换时全局 0.5s 平滑过渡（仅背景色，无 transform 位移） */
+html,body,body::before{background:var(--bar);}
+body{min-height:100vh;min-height:100dvh;transition:background-color .5s ease;}
+.page,.page-extra{transition:background-color .5s ease;}
+.page-head{transition:background-color .5s ease;min-height:calc(50px + env(safe-area-inset-top));}
+/* 页面切换使用 opacity 渐变，避免 transform 重绘导致的暗边闪烁 */
+.page.fade-in,.page-extra.fade-in{animation:pageFade .26s ease;}
+@keyframes pageFade{from{opacity:.35;}to{opacity:1;}}
+
+/* 键盘上方控制条（毛玻璃） */
+.kb-bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:95;
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px calc(8px + env(safe-area-inset-bottom));
+  background:rgba(255,255,255,.72);
+  backdrop-filter:blur(18px) saturate(180%);
+  -webkit-backdrop-filter:blur(18px) saturate(180%);
+  border-top:.5px solid rgba(0,0,0,.08);
+}
+.kb-bar[hidden]{display:none;}
+.kb-arr{font-size:20px;background:transparent;border:0;padding:6px 12px;border-radius:10px;color:#6b7a99;cursor:pointer;line-height:1;}
+.kb-arr:active{background:rgba(107,122,153,.14);}
+.kb-flex{flex:1;}
+.kb-action{border:0;background:rgba(107,122,153,.12);color:#5a6b8c;font-size:14px;font-weight:600;padding:8px 16px;border-radius:999px;cursor:pointer;}
+.kb-action:active{background:rgba(107,122,153,.24);}
+
+/* 圆点条目高亮闪烁（↑/↓ 定位反馈） */
+.insp-row.insp-flash .insp-front{animation:inspFlash .32s ease;}
+@keyframes inspFlash{0%{background:color-mix(in srgb,var(--accent) 28%,var(--bg));}100%{background:transparent;}}
+
+/* ═══ 调色盘 · 模块一 今日色彩情绪 ═══ */
+.pal-daily .pd-greet{font-size:14px;font-weight:600;line-height:1.7;margin-bottom:12px;color:var(--ink);}
+.pal-daily .pd-cards{display:flex;gap:8px;}
+.pal-daily .pd-card{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.pal-daily .pd-sw{width:100%;height:46px;border-radius:12px;box-shadow:var(--shadow);}
+.pal-daily .pd-cn{font-size:10.5px;color:var(--ink-soft);text-align:center;line-height:1.3;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pal-daily .pd-acts{display:flex;gap:8px;margin-top:14px;}
+.pal-daily .pd-acts button{flex:1;border:0;border-radius:999px;padding:9px 8px;font-size:12.5px;font-weight:600;cursor:pointer;background:var(--bg-soft);color:var(--ink);}
+.pal-daily .pd-acts .pd-use{background:var(--accent);color:#fff;}
+.pal-daily .pd-acts button:active{filter:brightness(.96);}
+.pal-daily .pd-alt{display:none;gap:10px;margin-top:12px;overflow-x:auto;padding-bottom:4px;}
+.pal-daily .pd-alt.show{display:flex;}
+.pal-daily .pd-alt-card{flex:none;width:140px;border:1px solid var(--line);border-radius:12px;padding:8px;}
+.pal-daily .pd-alt-card .pd-sw-row{display:flex;height:30px;border-radius:7px;overflow:hidden;}
+.pal-daily .pd-alt-card .pd-sw-row span{flex:1;}
+.pal-daily .pd-alt-card .pd-alt-name{font-size:11px;color:var(--ink-soft);margin:6px 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pal-daily .pd-alt-card .pd-alt-use{border:0;background:var(--bg-soft);color:var(--ink);font-size:11.5px;padding:5px 10px;border-radius:999px;width:100%;cursor:pointer;}
+
+/* ═══ 调色盘 · 模块二 配色日记预览 ═══ */
+.pal-diary-prev{cursor:pointer;}
+.pal-diary-prev .dp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.pal-diary-prev .dp-head b{font-size:14px;}
+.pal-diary-prev .dp-head .dp-more{font-size:12.5px;color:var(--accent);}
+.pal-diary-prev .dp-when{font-size:11.5px;color:var(--ink-soft);}
+.pal-diary-prev .dp-cards{display:flex;gap:6px;margin:8px 0;}
+.pal-diary-prev .dp-cards span{flex:1;height:34px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.04);}
+.pal-diary-prev .dp-names{font-size:11.5px;color:var(--ink-soft);line-height:1.5;}
+.pal-diary-prev .dp-mood{font-size:12.5px;color:var(--ink);margin-top:6px;line-height:1.6;}
+.pal-diary-prev .dp-scope{font-size:11px;color:var(--accent-deep);margin-top:4px;}
+.pal-diary-prev .dp-empty{font-size:12.5px;color:var(--ink-soft);text-align:center;padding:14px;}
+
+/* ═══ 调色盘 · 模块三 灵感补给 tabs ═══ */
+.pal-tabs{display:flex;gap:6px;margin-bottom:12px;}
+.pal-tabs button{flex:1;border:0;background:var(--bg-soft);color:var(--ink-soft);font-size:12px;font-weight:600;padding:8px 4px;border-radius:999px;cursor:pointer;}
+.pal-tabs button.active{background:var(--accent);color:#fff;}
+.inspire-stream{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 10px;-webkit-overflow-scrolling:touch;}
+.icard{flex:none;width:168px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:var(--shadow);}
+.icard.season .swatches-row{position:relative;}
+.icard .season-badge{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.45);color:#fff;font-size:9.5px;padding:2px 6px;border-radius:999px;}
+.icard .season-tag{font-size:10px;color:var(--ink-soft);margin-top:4px;}
+
+/* ═══ 调色盘 · 模块四 我的收藏 网格 ═══ */
+.fav-count{font-size:12px;color:var(--ink-soft);font-weight:500;}
+.fav-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:12px;margin-bottom:10px;}
+.fav-cell{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;position:relative;}
+.fav-cell .fc-sw{width:50px;height:50px;border-radius:50%;box-shadow:0 0 0 2px #fff,0 2px 8px rgba(0,0,0,.12);transition:transform .12s;}
+.fav-cell:active .fc-sw{transform:scale(.92);}
+.fav-cell .fc-name{font-size:10.5px;color:var(--ink-soft);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;}
+.fav-cell .fc-act{position:absolute;top:-4px;right:2px;font-size:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 4px;display:none;}
+.fav-cell:hover .fc-act{display:block;}
+.fav-empty{font-size:12.5px;color:var(--ink-soft);text-align:center;padding:14px;line-height:1.8;}
+.pal-fav-actions{display:flex;gap:8px;}
+.pal-fav-actions .mini-btn{flex:1;border:0;background:var(--bg-soft);color:var(--ink);font-size:13px;padding:9px;border-radius:10px;cursor:pointer;}
+
+/* ═══ 调色盘 · 子页（配色日记 / 搭配推荐） ═══ */
+.subpage{position:fixed;inset:0;z-index:86;background:var(--bar);display:flex;flex-direction:column;}
+.subpage[hidden]{display:none;}
+.subpage .page-head .ph-sub{font-size:12px;color:var(--ink-soft);margin-left:auto;}
+.subpage .scroll-body{flex:1;overflow-y:auto;padding-bottom:calc(var(--tabbar-h) + 20px);}
+
+/* 配色日记月历 */
+.diary-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:6px 0 14px;}
+.diary-cal .dc-h{font-size:11px;color:var(--ink-soft);text-align:center;}
+.diary-cal .dc{aspect-ratio:1;border-radius:9px;background:var(--bg-soft);font-size:12px;color:var(--ink);display:flex;align-items:center;justify-content:center;position:relative;}
+.diary-cal .dc.out{color:var(--ink-3);background:transparent;}
+.diary-cal .dc.today{font-weight:700;box-shadow:inset 0 0 0 2px var(--accent);}
+.diary-cal .dc.has::after{content:"";position:absolute;bottom:5px;width:6px;height:6px;border-radius:50%;background:var(--accent);}
+.diary-entry{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;background:var(--bg);}
+.diary-entry .de-when{font-size:12px;color:var(--ink-soft);display:flex;justify-content:space-between;align-items:center;}
+.diary-entry .de-cards{display:flex;gap:6px;margin:8px 0;}
+.diary-entry .de-cards span{flex:1;height:30px;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.04);}
+.diary-entry .de-name{font-size:13px;font-weight:600;}
+.diary-entry .de-names{font-size:11px;color:var(--ink-soft);}
+.diary-entry .de-scope{font-size:11px;color:var(--accent-deep);margin-top:3px;}
+.diary-entry .de-mood{font-size:12.5px;color:var(--ink);margin-top:5px;line-height:1.6;}
+
+/* 搭配推荐方案 */
+.pair-scheme{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;background:var(--bg);}
+.pair-scheme .ps-name{font-size:13.5px;font-weight:600;margin-bottom:8px;}
+.pair-scheme .ps-sw{display:flex;border-radius:9px;overflow:hidden;height:46px;box-shadow:var(--shadow);}
+.pair-scheme .ps-sw span{flex:1;}
+.pair-scheme .ps-names{font-size:11px;color:var(--ink-soft);margin:8px 0;line-height:1.5;}
+.pair-scheme .ps-acts{display:flex;gap:8px;}
+.pair-scheme .ps-acts button{flex:1;border:0;border-radius:999px;padding:9px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.pair-scheme .ps-prev{background:var(--bg-soft);color:var(--ink);}
+.pair-scheme .ps-apply{background:var(--accent);color:#fff;}
+
+/* 预览效果弹窗内容 */
+.prev-preview{display:flex;flex-direction:column;gap:10px;margin:6px 0 12px;}
+.prev-block{border:1px solid var(--line);border-radius:10px;padding:10px;}
+.prev-block .pb-t{font-size:11px;color:var(--ink-soft);margin-bottom:6px;}
+.prev-mini-list .pb-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;}
+.prev-mini-list .pb-dot{width:12px;height:12px;border-radius:50%;}
+.prev-mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.prev-mini-cal span{aspect-ratio:1;border-radius:5px;background:var(--bg-soft);}
