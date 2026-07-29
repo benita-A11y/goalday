@@ -44,7 +44,7 @@
         <span class="wk-swap" id="prevWeek">‹</span>
         <span class="wk-swap" id="nextWeek">›</span>
         <button id="todayBtn" class="mini-btn">回本周</button>
-        <span id="weekRange" style="margin-left:auto;">—</span>
+        <button id="weekRangeBtn" class="wk-range" style="margin-left:auto;">— 📆</button>
       </div>
     </div>
     <div class="goal-row">
@@ -94,13 +94,25 @@
 <!-- 抽屉侧边栏 -->
 <div id="drawerMask"></div>
 <aside id="drawer">
-  <div class="drawer-title">🗓️ GoalDay</div>
-  <div class="drawer-sec">系统清单</div>
-  <div id="sysLists"></div>
+  <div class="drawer-title">🗂️ 我的空间</div>
+  <div class="drawer-sec">灵感整理</div>
+  <button class="ditem" data-tv="inbox"><span class="di">📥</span>灵感收集箱<span class="cnt" id="dvInbox">0</span></button>
+  <button class="ditem" data-tv="triage"><span class="di">📂</span>待分类<span class="cnt" id="dvTriage">0</span></button>
+  <button class="ditem" data-tv="plan"><span class="di">📅</span>周计划</button>
   <div class="drawer-sec">我的清单</div>
   <div id="userLists"></div>
   <button id="addListBtn" class="drawer-add">➕ 新增清单</button>
+  <div class="drawer-sec">其他</div>
+  <button class="ditem" data-tv="trash"><span class="di">🗑️</span>回收站<span class="cnt" id="dvTrash">0</span></button>
 </aside>
+
+<!-- 周计划日历跳转浮窗 -->
+<div class="cal-pop" id="calPop" hidden>
+  <div class="cal-pop-inner">
+    <div class="cal-pop-head"><button id="calPrevM">‹</button><span id="calMonthLabel"></span><button id="calNextM">›</button></div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
 
 <!-- ═══════════ Tab2 打卡 ═══════════ -->
 <section class="page" id="page-habit">
@@ -218,11 +230,13 @@
       <h3 class="ptt">🎨 主题配色</h3>
       <div class="theme-list" id="themeList">
         <button class="theme-item" data-t="princess"><span class="tdot" style="background:linear-gradient(135deg,#FFF5F7,#FFD6E0)"></span><span class="tname">👑 公主色系</span><small>粉嫩甜心</small></button>
-        <button class="theme-item" data-t="flower"><span class="tdot" style="background:linear-gradient(135deg,#FFF8F0,#FFE0D6)"></span><span class="tname">💐 花束色系</span><small>缤纷柔和</small></button>
+        <button class="theme-item" data-t="flower"><span class="tdot" style="background:linear-gradient(135deg,#FFF8F0,#FFE0D6)"></span><span class="tname">💐 花束色系</small><small>缤纷柔和</small></button>
         <button class="theme-item" data-t="morandi"><span class="tdot" style="background:linear-gradient(135deg,#F5F0EB,#D5CFC5)"></span><span class="tname">🍂 莫兰迪色系</span><small>高级灰调</small></button>
         <button class="theme-item" data-t="macaron"><span class="tdot" style="background:linear-gradient(135deg,#FFFDF5,#D9EEFF)"></span><span class="tname">🍡 马卡龙色系</span><small>奶fufu</small></button>
       </div>
       <div class="theme-preview" id="themePreview"></div>
+      <div class="theme-custom" id="themeCustom"></div>
+      <p class="set-note">🎨 「我的收藏色」来自「调色盘 → 我的收藏」，点一下即设为全局主色，应用到清单圆点、热力图、图表与灵感圆点。</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🔔 智能提醒</h3>
@@ -235,7 +249,7 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">GoalDay v10 · 待办双栏（整页全局滚动·可拖拽分割线·拖拽剪切排程）× 打卡（情绪标签）× 番茄钟 × 复盘（每日手帐时间轴·心情图表·年度回顾）× 调色盘 × 灵感收集箱<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA<br>右侧清单默认「收集箱」= 未排期任务池。</p>
+      <p class="set-note">GoalDay v11 · 待办重做（🗂️ 我的空间：灵感收集箱→待分类→周计划→我的清单→回收站，按使用流程串联）× 打卡（情绪标签）× 番茄钟 × 复盘（每日手帐时间轴·心情图表·年度回顾）× 调色盘（收藏色联动主题）× 灵感收集箱（Apple 圆点速记）<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
     </div>
   </div>
 </section>
@@ -345,16 +359,6 @@
       <p class="set-note">收藏与配色通过你的账号云同步（需配置后端 API）。未配置时仅保存在本机，离线可用。</p>
       <button class="set-btn" id="paletteSync">🔄 同步到云端</button>
     </div>
-  </div>
-</section>
-
-<!-- ═══════════ 灵感收集箱（待办内入口 · 深层页） ═══════════ -->
-<section class="page page-extra" id="inspPage" hidden>
-  <header class="page-head"><button class="icon-btn" data-close="inspPage">‹</button><h1>💡 灵感收集箱</h1></header>
-  <div class="scroll-body" id="inspBody"></div>
-  <div class="insp-bar">
-    <input id="inspInput" type="text" placeholder="快速记录一闪而过的念头…" maxlength="200">
-    <button id="inspAddBtn" title="添加图片便签">📎</button>
   </div>
 </section>
 
