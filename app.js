@@ -40,7 +40,7 @@ function defaultState(){
     ],
     events:[], goals:{},
     weekOffset:0, weekView:"simple", viewMode:"week", poolList:"all", splitLeft:null,
-    todoLayer:"home", todoSel:"inbox",
+    todoLayer:"inbox", todoSel:"inbox",
     reviewDim:"week",
     dayDate:todayStr(), monthOffset:0,
     habits:[
@@ -48,13 +48,17 @@ function defaultState(){
       {id:uid(),name:"阅读30分钟",emoji:"📖",color:"#b8aeeb",checks:{},createdAt:Date.now()},
     ],
     pomo:{focusMin:25,breakMin:5,noise:false,records:[]},
-    settings:{theme:"morandi"},
+    settings:{theme:"morandi",accent:null},
     activeTab:"todo",
     /* v10：新功能数据 */
     revMode:"data",
     moods:{},
     palette:{favs:[],colors:[],lastInspire:null},
-    inspirations:[],
+    inspirations:[
+      {id:uid(),text:"今天下午3点开会",img:null,createdAt:Date.now(),status:"inbox",deletedAt:null},
+      {id:uid(),text:"周末买一束花放书房",img:null,createdAt:Date.now(),status:"inbox",deletedAt:null},
+      {id:uid(),text:"下个月旅行记得带充电器",img:null,createdAt:Date.now(),status:"inbox",deletedAt:null},
+    ],
     annual:{},
   };
 }
@@ -79,13 +83,21 @@ function load(){
       if(st.todoSel==="quad"||st.todoSel==="done"||st.todoSel==="abandoned")st.todoSel="inbox";
       if(st.poolList==="inbox")st.poolList="all";   /* v9：收集箱统一为「全部未排期」池 */
       if(!["princess","flower","morandi","macaron"].includes(st.settings&&st.settings.theme))st.settings=Object.assign({theme:"morandi"},st.settings||{});
-      if(!st.todoLayer)st.todoLayer="home";
+      if(!st.todoLayer)st.todoLayer="inbox";
       if(!st.reviewDim)st.reviewDim="week";
       if(!st.revMode)st.revMode="data";
       if(!st.moods)st.moods={};
       if(!st.palette)st.palette={favs:[],colors:[],lastInspire:null};
       if(!st.inspirations)st.inspirations=[];
       if(!st.annual)st.annual={};
+      if(st.settings&&st.settings.accent===undefined)st.settings.accent=null;
+      /* v11：灵感数据归一化（旧 {text,img,color} → 新 {status} 模型） */
+      st.inspirations=(st.inspirations||[]).map(n=>({
+        id:n.id||uid(),text:n.text||"",img:n.img||null,
+        createdAt:n.createdAt||Date.now(),
+        status:(n.status==="trash"||n.status==="categorized")?n.status:"inbox",
+        deletedAt:n.deletedAt||null,
+      }));
       return st;
     }
     const old=localStorage.getItem(OLD_KEY);
@@ -127,42 +139,25 @@ function renderTab(tab){
 }
 function renderAll(){renderTab(state.activeTab);save();}
 
-/* ═══════════ Tab1 待办 · GTD ═══════════ */
-const SYS_LISTS=[
-  {id:"inbox",name:"收集箱",emoji:"📥"},
-];
-function sysCount(id){
-  const ts=state.tasks;
-  if(id==="inbox")return ts.filter(t=>!t.done&&!t.abandoned&&!t.due).length;
-  return 0;
-}
+/* ═══════════ Tab1 待办 · 我的空间（灵感→待分类→周计划→我的清单→回收站） ═══════════ */
+let openListId=null;
 function enterPlan(pool){
   state.todoLayer="plan";
-  state.poolList=pool;
+  state.poolList=pool||"all";
   closeDrawer();
   renderTodo();
 }
 function renderDrawer(){
-  const sys=$("#sysLists");sys.innerHTML="";
-  SYS_LISTS.forEach(s=>{
-    const b=document.createElement("button");
-    const cnt=state.tasks.filter(t=>!t.done&&!t.abandoned&&!t.due).length;
-    b.className="ditem"+(state.todoLayer==="plan"&&state.poolList==="all"?" active":"");
-    b.innerHTML=`<span>${s.emoji}</span>${s.name}<span class="cnt">${cnt}</span>`;
-    b.addEventListener("click",()=>enterPlan("all"));
-    sys.appendChild(b);
-  });
+  $("#dvInbox").textContent=state.inspirations.filter(n=>n.status==="inbox").length;
+  $("#dvTriage").textContent=state.inspirations.filter(n=>n.status==="inbox").length;
+  $("#dvTrash").textContent=state.inspirations.filter(n=>n.status==="trash").length;
+  $$("#drawer .ditem[data-tv]").forEach(b=>b.classList.toggle("active",b.dataset.tv===state.todoLayer));
   const ul=$("#userLists");ul.innerHTML="";
   state.lists.forEach(l=>{
     const b=document.createElement("button");
-    b.className="ditem"+(state.todoLayer==="plan"&&state.poolList===l.id?" active":"");
-    b.innerHTML=`<span class="dot" style="background:${l.color}"></span><span>${l.emoji}</span>${esc(l.name)}<span class="cnt">${state.tasks.filter(t=>t.listId===l.id&&!t.done&&!t.abandoned).length}</span>`;
-    b.addEventListener("click",()=>enterPlan(l.id));
-    b.addEventListener("contextmenu",e=>{e.preventDefault();delList(l.id);});
-    let tm;
-    b.addEventListener("touchstart",()=>{tm=setTimeout(()=>delList(l.id),700);},{passive:true});
-    b.addEventListener("touchend",()=>clearTimeout(tm));
-    b.addEventListener("touchmove",()=>clearTimeout(tm));
+    b.className="ditem"+(state.todoLayer==="lists"&&openListId===l.id?" active":"");
+    b.innerHTML=`<span class="dot" style="background:${l.color}"></span><span class="di">${l.emoji}</span>${esc(l.name)}<span class="cnt">${state.tasks.filter(t=>t.listId===l.id&&!t.done&&!t.abandoned).length}</span>`;
+    b.addEventListener("click",()=>{state.todoLayer="lists";openListId=l.id;closeDrawer();renderTodo();});
     ul.appendChild(b);
   });
 }
@@ -173,6 +168,7 @@ function delList(id){
     state.tasks.forEach(t=>{if(t.listId===id)t.listId=null;});
     if(state.todoSel===id)state.todoSel="inbox";
     if(state.poolList===id)state.poolList="all";
+    if(openListId===id)openListId=null;
     renderDrawer();renderTodo();save();
   }
 }
@@ -180,49 +176,181 @@ function openDrawer(){renderDrawer();$("#drawer").classList.add("show");$("#draw
 function closeDrawer(){$("#drawer").classList.remove("show");$("#drawerMask").classList.remove("show");}
 $("#drawerBtn").addEventListener("click",openDrawer);
 $("#drawerBtn2").addEventListener("click",openDrawer);
-$("#planBack").addEventListener("click",()=>{state.todoLayer="home";renderTodo();save();});
+$("#planBack").addEventListener("click",()=>{state.todoLayer="inbox";openListId=null;renderTodo();save();});
 $("#drawerMask").addEventListener("click",closeDrawer);
 $("#addListBtn").addEventListener("click",()=>{closeDrawer();openListModal();});
+$$("#drawer .ditem[data-tv]").forEach(b=>b.addEventListener("click",()=>{
+  const tv=b.dataset.tv;
+  if(tv==="plan"){state.todoLayer="plan";closeDrawer();renderTodo();return;}
+  state.todoLayer=tv;openListId=null;closeDrawer();renderTodo();
+}));
 
-function todoTitle(){
-  const s=SYS_LISTS.find(x=>x.id===state.todoSel);
-  if(s)return s.emoji+" "+s.name;
-  const l=listOf(state.todoSel);
-  return l?l.emoji+" "+l.name:"📥 收集箱";
-}
-/* ── Tab1：首页（收集箱） + 双栏周计划（第二层） ── */
+function refreshTodo(){renderTodo();renderDrawer();}
+/* ── Tab1 主分发：按使用流程切换子视图 ── */
 function renderTodo(){
   const home=$("#todoHome"),plan=$("#todoPlan");
   if(state.todoLayer==="plan"){home.hidden=true;plan.hidden=false;renderTodoPlan();}
-  else{home.hidden=false;plan.hidden=true;renderTodoHome();}
+  else{
+    home.hidden=false;plan.hidden=true;
+    if(state.todoLayer==="triage")renderTriage();
+    else if(state.todoLayer==="lists")renderMyLists();
+    else if(state.todoLayer==="trash")renderTrash();
+    else{state.todoLayer="inbox";renderInbox();}
+  }
 }
-function renderTodoHome(){
-  $("#todoTitle").textContent="📋 待办";
+
+/* ── 灵感数据助手 ── */
+function mkTask(listId,title){
+  return {id:uid(),listId:listId||null,title:title,notes:"来自灵感收集箱",due:null,dueEnd:null,time:null,allDay:false,done:false,abandoned:false,tags:[],priority:null,subs:[],createdAt:Date.now(),completedAt:null};
+}
+function addInsp(text,img){
+  state.inspirations.push({id:uid(),text:text||"",img:img||null,createdAt:Date.now(),status:"inbox",deletedAt:null});
+  save();renderInbox();
+  if(text)focusLastInsp();
+}
+function focusLastInsp(){
+  const rows=$$("#todoBody .insp-row .ib-text");
+  if(rows.length){const el=rows[rows.length-1];el.focus();document.getSelection().selectAllChildren(el);}
+}
+function trashInsp(id){const n=state.inspirations.find(x=>x.id===id);if(n){n.status="trash";n.deletedAt=Date.now();save();refreshTodo();toast("已移入回收站 🗑️");}}
+function restoreInsp(id){const n=state.inspirations.find(x=>x.id===id);if(n){n.status="inbox";n.deletedAt=null;save();refreshTodo();toast("已恢复到灵感收集箱 📥");}}
+function permDeleteInsp(id){state.inspirations=state.inspirations.filter(x=>x.id!==id);save();refreshTodo();toast("已永久删除");}
+function purgeTrash(){const cut=Date.now()-30*864e5;state.inspirations=state.inspirations.filter(n=>!(n.status==="trash"&&(n.deletedAt||0)<cut));}
+function categorizeInsp(id){
+  const n=state.inspirations.find(x=>x.id===id);if(!n)return;
+  pickList("归类到清单",val=>{
+    state.tasks.unshift(mkTask(val, n.text));
+    n.status="categorized";
+    save();renderTriage();toast("已归类到清单 ✅");
+  });
+}
+/* 选清单弹层（归类灵感 / 任务用） */
+function pickList(title,cb){
+  const ov=document.createElement("div");ov.className="mask show";
+  ov.innerHTML=`<div class="modal show" style="max-width:420px"><h3>${esc(title)}</h3><div id="pl"></div><div class="modal-btns"><span class="flex1"></span><button id="plCancel">取消</button></div></div>`;
+  document.body.appendChild(ov);
+  const pl=ov.querySelector("#pl");
+  const mk=(label,val)=>{const b=document.createElement("button");b.className="set-btn";b.style.marginBottom="8px";b.textContent=label;b.onclick=()=>{ov.remove();cb(val);};pl.appendChild(b);};
+  mk("📥 收集箱",null);
+  state.lists.forEach(l=>mk(l.emoji+" "+l.name,l.id));
+  ov.querySelector("#plCancel").onclick=()=>ov.remove();
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+}
+
+/* ── 滑动手势：左滑 onLeft / 右滑 onRight（行内包含 contenteditable 时跳过） ── */
+function enableSwipeRow(el,onLeft,onRight){
+  let sx=0,sy=0,tracking=false,decided=null;
+  el.addEventListener("pointerdown",e=>{if(e.target.isContentEditable||e.target.closest("button"))return;sx=e.clientX;sy=e.clientY;tracking=true;decided=null;});
+  el.addEventListener("pointermove",e=>{if(!tracking)return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy))decided=dx<0?"L":"R";});
+  el.addEventListener("pointerup",()=>{if(!tracking)return;tracking=false;if(decided==="L"&&onLeft)onLeft();else if(decided==="R"&&onRight)onRight();});
+  el.addEventListener("pointercancel",()=>{tracking=false;});
+}
+
+/* ── 灵感收集箱（默认页 · Apple 圆点速记） ── */
+function renderInbox(){
+  $("#todoTitle").textContent="💭 灵感收集箱";
   const body=$("#todoBody");body.innerHTML="";
-  /* 收集箱入口卡（→ 双栏周计划 · 未排期任务池） */
-  const inboxCnt=state.tasks.filter(t=>!t.done&&!t.abandoned&&!t.due).length;
-  body.appendChild(homeCard("📥","收集箱",inboxCnt,"plan","all"));
-  /* 各用户清单 */
+  const list=state.inspirations.filter(n=>n.status==="inbox");
+  const wrap=document.createElement("div");wrap.className="insp-editor";
+  if(!list.length)wrap.innerHTML=`<div class="insp-empty">✨ 想到什么就记下来，稍后整理<br><span class="dim">点下方空白处新增一条</span></div>`;
+  list.forEach(n=>wrap.appendChild(inspRow(n)));
+  body.appendChild(wrap);
+  const add=document.createElement("div");add.className="insp-add";
+  add.innerHTML=`<span class="ib-bullet">○</span><input class="insp-add-input" placeholder="新增灵感…（回车添加）" maxlength="200">`;
+  add.querySelector("input").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const v=e.target.value.trim();if(v)addInsp(v);}});
+  body.appendChild(add);
+  applyEmoji();
+}
+function inspRow(n){
+  const row=document.createElement("div");row.className="insp-row";row.dataset.id=n.id;
+  const front=document.createElement("div");front.className="insp-front";
+  const bullet=document.createElement("button");bullet.className="ib-bullet";bullet.type="button";bullet.textContent="○";bullet.title="添加图片";
+  bullet.addEventListener("click",()=>{window.__pendingInsp=n.id;$("#inspPhoto").click();});
+  const txt=document.createElement("div");txt.className="ib-text";txt.contentEditable="true";txt.textContent=n.text;
+  txt.addEventListener("input",()=>{n.text=txt.textContent;save();});
+  txt.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();addInsp("");}});
+  front.append(bullet,txt);
+  if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
+  row.appendChild(front);
+  enableSwipeRow(row,()=>trashInsp(n.id),null);
+  return row;
+}
+
+/* ── 待分类（左滑归类 / 右滑移回） ── */
+function renderTriage(){
+  $("#todoTitle").textContent="📂 待分类";
+  const body=$("#todoBody");body.innerHTML="";
+  const list=state.inspirations.filter(n=>n.status==="inbox");
+  if(!list.length){body.innerHTML=`<div class="insp-empty">🎉 没有待整理的了，灵感都归类好啦</div>`;applyEmoji();return;}
+  const info=document.createElement("div");info.className="triage-info";info.textContent=`共 ${list.length} 条待整理 · 左滑归类到清单，右滑移回`;
+  body.appendChild(info);
+  list.forEach(n=>{
+    const row=document.createElement("div");row.className="insp-row";
+    const front=document.createElement("div");front.className="insp-front";
+    front.innerHTML=`<span class="ib-bullet">○</span><div class="ib-text">${esc(n.text)}</div>`;
+    if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
+    row.appendChild(front);
+    enableSwipeRow(row,()=>categorizeInsp(n.id),()=>toast("已在灵感收集箱"));
+    body.appendChild(row);
+  });
+  applyEmoji();
+}
+
+/* ── 我的清单（列表 → 清单详情） ── */
+function renderMyLists(){
+  $("#todoTitle").textContent="📋 我的清单";
+  const body=$("#todoBody");body.innerHTML="";
+  if(openListId){renderListDetail(openListId,body);applyEmoji();return;}
   state.lists.forEach(l=>{
     const n=state.tasks.filter(t=>t.listId===l.id&&!t.done&&!t.abandoned).length;
-    body.appendChild(homeCard(l.emoji,l.name,n,"plan",l.id,l.color));
+    const card=document.createElement("button");card.className="home-card";
+    card.innerHTML=`<span class="dot" style="background:${l.color}"></span><span class="hc-ico">${l.emoji}</span><span class="hc-name">${esc(l.name)}</span><span class="hc-cnt">${n}</span><span class="hc-go">›</span>`;
+    card.addEventListener("click",()=>{openListId=l.id;renderMyLists();});
+    card.addEventListener("contextmenu",e=>{e.preventDefault();delList(l.id);});
+    body.appendChild(card);
   });
-  /* 新增清单 */
-  const add=document.createElement("button");
-  add.className="home-add";add.innerHTML="➕ 新增清单";
-  add.addEventListener("click",openListModal);
-  body.appendChild(add);
+  const add=document.createElement("button");add.className="home-add";add.textContent="➕ 新增清单";
+  add.addEventListener("click",openListModal);body.appendChild(add);
+  applyEmoji();
 }
-function homeCard(emoji,name,count,act,arg,color){
-  const c=document.createElement("button");
-  c.className="home-card";
-  c.innerHTML=`<span class="hc-ico">${emoji}</span>`+
-    (color?`<span class="dot" style="background:${color}"></span>`:"")+
-    `<span class="hc-name">${esc(name)}</span>`+
-    `<span class="hc-cnt">${count}</span>`+
-    `<span class="hc-go">›</span>`;
-  c.addEventListener("click",()=>{if(act==="plan")enterPlan(arg);});
-  return c;
+function renderListDetail(id,body){
+  const l=listOf(id);if(!l){openListId=null;renderMyLists();return;}
+  const back=document.createElement("button");back.className="ll-back";back.textContent="‹ 返回清单";
+  back.addEventListener("click",()=>{openListId=null;renderMyLists();});
+  body.appendChild(back);
+  const meta=document.createElement("div");meta.className="ll-meta";
+  meta.innerHTML=`<span class="dot" style="background:${l.color}"></span><b>${l.emoji} ${esc(l.name)}</b><span class="ll-edit" data-id="${l.id}">✎ 编辑</span>`;
+  meta.querySelector(".ll-edit").addEventListener("click",()=>openListModal(l.id));
+  body.appendChild(meta);
+  const tasks=state.tasks.filter(t=>t.listId===l.id&&!t.abandoned).sort((a,b)=>(a.done-b.done));
+  if(!tasks.length)body.appendChild(Object.assign(document.createElement("div"),{className:"insp-empty",textContent:"这个清单还没有任务，去周计划拖进来吧"}));
+  tasks.forEach(t=>body.appendChild(taskCard(t)));
+  const add=document.createElement("button");add.className="home-add";add.textContent="➕ 添加任务";
+  add.addEventListener("click",()=>openTaskModal(null));
+  body.appendChild(add);
+  applyEmoji();
+}
+
+/* ── 回收站（30 天） ── */
+function renderTrash(){
+  $("#todoTitle").textContent="🗑️ 回收站";
+  const body=$("#todoBody");body.innerHTML="";
+  purgeTrash();
+  const list=state.inspirations.filter(n=>n.status==="trash");
+  if(!list.length){body.innerHTML=`<div class="insp-empty">回收站是空的 🍃</div>`;applyEmoji();return;}
+  const info=document.createElement("div");info.className="triage-info";info.textContent=`左滑恢复 · 右滑永久删除（保留 30 天）`;
+  body.appendChild(info);
+  list.forEach(n=>{
+    const row=document.createElement("div");row.className="insp-row";
+    const front=document.createElement("div");front.className="insp-front";
+    const days=Math.max(0,Math.ceil((Date.now()-(n.deletedAt||Date.now()))/864e5));
+    front.innerHTML=`<span class="ib-bullet">🗑️</span><div class="ib-text">${esc(n.text)}</div><span class="ib-del">${days}天前删</span>`;
+    if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
+    row.appendChild(front);
+    enableSwipeRow(row,()=>restoreInsp(n.id),()=>permDeleteInsp(n.id));
+    body.appendChild(row);
+  });
+  applyEmoji();
 }
 function renderTodoPlan(){
   setWkTab("plan");
@@ -334,7 +462,7 @@ function renderWeek(){
   document.body.classList.toggle("view-full",state.weekView==="full");
   const dates=weekDates(state.weekOffset);
   $("#weekNum").textContent=`第${isoWeek(dates[0])}周`;
-  $("#weekRange").textContent=`${dates[0].getMonth()+1}月${dates[0].getDate()}日 – ${dates[6].getMonth()+1}月${dates[6].getDate()}日`;
+  $("#weekRangeBtn").textContent=`${dates[0].getMonth()+1}月${dates[0].getDate()}日 – ${dates[6].getMonth()+1}月${dates[6].getDate()}日 📆`;
   $("#todayBtn").style.visibility=state.weekOffset===0?"hidden":"visible";
   const k=fmtDate(dates[0]);
   const gi=$("#goalInput");
@@ -453,6 +581,39 @@ function setWkTab(t){
   $("#wtPool").classList.toggle("active",t==="pool");
 }
 setWkTab("plan");
+
+/* ── 周计划日历跳转弹窗 ── */
+let calOff=0;
+function openCalPop(){calOff=0;renderCalPop();$("#calPop").hidden=false;}
+function closeCalPop(){$("#calPop").hidden=true;}
+function renderCalPop(){
+  const now=new Date();now.setDate(1);now.setMonth(now.getMonth()+calOff);
+  const y=now.getFullYear(),m=now.getMonth();
+  $("#calMonthLabel").textContent=`${y}年${m+1}月`;
+  const first=new Date(y,m,1);first.setDate(1-((first.getDay()+6)%7));
+  const grid=$("#calGrid");grid.innerHTML="";
+  const hasTask=ds=>state.tasks.some(t=>!t.abandoned&&t.due===ds)||state.habits.some(h=>h.checks[ds]);
+  for(let i=0;i<42;i++){
+    const d=new Date(first);d.setDate(first.getDate()+i);
+    const ds=fmtDate(d);
+    const cell=document.createElement("div");
+    cell.className="cd"+(d.getMonth()!==m?" out":"")+(ds===todayStr()?" today":"")+(hasTask(ds)?" has":"");
+    cell.textContent=d.getDate();
+    if(d.getMonth()===m)cell.addEventListener("click",()=>jumpToWeek(ds));
+    grid.appendChild(cell);
+  }
+}
+function jumpToWeek(ds){
+  const t=new Date(ds+"T00:00");
+  const tm=new Date(t);tm.setHours(0,0,0,0);tm.setDate(tm.getDate()-((tm.getDay()+6)%7));
+  const base=new Date();base.setHours(0,0,0,0);base.setDate(base.getDate()-((base.getDay()+6)%7));
+  state.weekOffset=Math.round((tm-base)/(7*864e5));
+  state.viewMode="week";closeCalPop();renderView();save();
+}
+$("#weekRangeBtn").addEventListener("click",openCalPop);
+$("#calPrevM").addEventListener("click",()=>{calOff--;renderCalPop();});
+$("#calNextM").addEventListener("click",()=>{calOff++;renderCalPop();});
+$("#calPop").addEventListener("click",e=>{if(e.target.id==="calPop")closeCalPop();});
 
 /* ── 日视图 ── */
 $("#dayPrev").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,-1);renderDay();save();});
@@ -702,17 +863,27 @@ function buildSwatches(boxSel,onPick){
   });
   box.firstChild.classList.add("sel");
 }
-function openListModal(){
-  $("#lmName").value="";$("#lmEmoji").value="";
-  pickColor=PALETTE[0];
+let editListId=null;
+function openListModal(id){
+  editListId=id||null;
+  const l=id?listOf(id):null;
+  $("#lmName").value=l?l.name:"";
+  $("#lmEmoji").value=l?l.emoji:"";
+  pickColor=l?l.color:PALETTE[0];
   buildSwatches("#lmColors",c=>pickColor=c);
   showModal("listModal");
 }
 $("#lmSave").addEventListener("click",()=>{
   const name=$("#lmName").value.trim();
   if(!name){toast("请填写清单名称 ✏️");return;}
-  state.lists.push({id:uid(),name,emoji:$("#lmEmoji").value.trim()||"✨",color:pickColor});
-  closeModal();renderDrawer();renderAll();toast("清单已创建 🎀");
+  if(editListId){
+    const l=listOf(editListId);
+    if(l){l.name=name;l.emoji=$("#lmEmoji").value.trim()||"✨";l.color=pickColor;}
+    closeModal();renderDrawer();renderAll();toast("清单已更新 ✏️");
+  }else{
+    state.lists.push({id:uid(),name,emoji:$("#lmEmoji").value.trim()||"✨",color:pickColor});
+    closeModal();renderDrawer();renderAll();toast("清单已创建 🎀");
+  }
 });
 $("#lmCancel").addEventListener("click",closeModal);
 
@@ -1148,6 +1319,53 @@ function applyTheme(t){
   const bar=getComputedStyle(document.body).getPropertyValue("--bar").trim();
   if(meta&&bar)meta.setAttribute("content",bar);
   renderThemePreview(t);
+  applyAccent();
+}
+/* 全局主色调（调色盘「我的收藏色」联动） */
+function applyAccent(){
+  const root=document.body;
+  if(state.settings.accent){
+    root.style.setProperty("--accent",state.settings.accent);
+    root.style.setProperty("--accent-deep",accentDeep(state.settings.accent));
+  }else{
+    root.style.removeProperty("--accent");
+    root.style.removeProperty("--accent-deep");
+  }
+}
+function accentDeep(hex){
+  const c=String(hex).replace("#","");
+  if(c.length!==6)return hex;
+  const n=parseInt(c,16);
+  let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  const f=v=>Math.max(0,Math.round(v*0.82)).toString(16).padStart(2,"0");
+  return "#"+f(r)+f(g)+f(b);
+}
+/* 调色盘收藏 → 可点击主题色（最多 5，最近优先） */
+function myFavColors(){
+  if(!state.palette)return [];
+  const out=[];
+  (state.palette.favs||[]).forEach(f=>{if(f&&f.colors&&f.colors[0])out.push({hex:f.colors[0],name:f.name||f.colors[0]});});
+  (state.palette.colors||[]).forEach(c=>out.push({hex:c.hex,name:c.name||c.hex}));
+  const seen=new Set(),uniq=[];
+  for(let i=out.length-1;i>=0;i--){const h=String(out[i].hex).toUpperCase();if(!seen.has(h)){seen.add(h);uniq.push(out[i]);}}
+  return uniq.slice(0,5);
+}
+function renderThemeCustom(){
+  const box=$("#themeCustom");if(!box)return;
+  const cols=myFavColors();
+  if(!cols.length){box.innerHTML=`<div class="tc-empty">在「调色盘」里收藏颜色后，会出现在这里作为专属主题色 🎨</div>`;return;}
+  let html=`<div class="tc-title">我的收藏色</div><div class="tc-row">`;
+  cols.forEach(c=>{
+    const sel=state.settings.accent&&state.settings.accent.toUpperCase()===String(c.hex).toUpperCase();
+    html+=`<button class="tc-dot${sel?" on":""}" data-hex="${esc(c.hex)}" title="${esc(c.name||c.hex)}" style="background:${c.hex}"></button>`;
+  });
+  html+=`</div>`;
+  if(state.settings.accent)html+=`<button class="tc-reset" id="tcReset">↺ 恢复默认主题色</button>`;
+  box.innerHTML=html;
+  box.querySelectorAll(".tc-dot").forEach(b=>b.addEventListener("click",()=>{
+    state.settings.accent=b.dataset.hex;applyAccent();renderSettings();save();toast("已应用专属主色调 🎨");
+  }));
+  const r=$("#tcReset");if(r)r.addEventListener("click",()=>{state.settings.accent=null;applyAccent();renderSettings();save();toast("已恢复默认主题色");});
 }
 function renderThemePreview(t){
   const box=$("#themePreview");if(!box)return;
@@ -1157,6 +1375,7 @@ function renderThemePreview(t){
 function renderSettings(){
   $$("#themeList .theme-item").forEach(b=>b.classList.toggle("sel",b.dataset.t===state.settings.theme));
   renderThemePreview(state.settings.theme);
+  renderThemeCustom();
 }
 $$("#themeList .theme-item").forEach(b=>b.addEventListener("click",()=>{
   state.settings.theme=b.dataset.t;applyTheme(b.dataset.t);renderSettings();save();toast("主题已切换 🎨");
