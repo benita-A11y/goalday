@@ -14,6 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
+const BUILD = 10;   /* 构建号：部署时同步 +1，供跨设备自动同步轮询使用 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2549,10 +2550,24 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v9";
-  window.addEventListener("load",()=>{navigator.serviceWorker.register(SW_URL).catch(()=>{});});
+  const SW_URL="sw.js?__v=jihua-v10";
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register(SW_URL).catch(()=>{});
+    /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
+    const tick=()=>navigator.serviceWorker.getRegistration().then(r=>r&&r.update&&r.update().catch(()=>{}));
+    tick();setInterval(tick,30000);
+  });
   navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());
 }
+/* 跨设备同步：轮询 version.json，任何一端（含 iOS 主屏 PWA）检测到更高 build 即强制刷新，
+   保证电脑/手机/平板始终同一版本，无需手动刷新。 */
+(function autoSync(){
+  const check=()=>{fetch("version.json",{cache:"no-store"}).then(r=>r.json()).then(d=>{
+    if(d&&typeof d.build==="number"&&d.build>BUILD)location.reload(true);
+  }).catch(()=>{});};
+  setTimeout(check,8000);
+  setInterval(check,30000);
+})();
 /* 注册全部配色方案并应用已保存方案（无则使用默认莫兰迪基底） */
 COLOR_SYSTEMS.forEach(sys=>sys.schemes.forEach(sc=>registerScheme(sc.key,sc.colors)));
 if(typeof INSPIRE_HOT5!=="undefined")INSPIRE_HOT5.forEach(p=>registerScheme(p.key,p.colors));
