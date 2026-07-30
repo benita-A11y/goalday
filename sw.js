@@ -1,5 +1,5 @@
 /* GoalDay Service Worker - 离线可用 + 每次刷新拉取最新 */
-const CACHE = "jihua-v9";
+const CACHE = "jihua-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -25,7 +25,7 @@ self.addEventListener("activate", e => {
 
 /* 应用外壳（html/js/css）采用「网络优先」：每次刷新都先取服务器最新，
    更新本地缓存；仅在断网时回退到缓存，保证离线可用且更新必达。 */
-const SHELL_RE = /\/(index\.html|styles\.css|app\.js|plus\.js|manifest\.webmanifest)$/;
+const SHELL_RE = /\/(index\.html|styles\.css|app\.js|plus\.js|manifest\.webmanifest|version\.json)$/;
 
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
