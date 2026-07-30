@@ -124,23 +124,25 @@
 
 <!-- ═══════════ Tab2 打卡 ═══════════ -->
 <section class="page" id="page-habit">
-  <header class="page-head center"><h1>✅ 打卡</h1></header>
+  <header class="page-head center habit-head"><h1>✅ 打卡</h1><button class="icon-btn habit-more" id="habitMenuBtn" title="更多">⋯</button></header>
   <div class="sub-tabs">
     <button id="hbTab1" class="active">打卡</button>
     <button id="hbTab2">历史记录</button>
   </div>
   <div class="scroll-body">
     <div id="habitMain">
+      <div class="hb-cats" id="habitCats"></div>
+      <div class="hb-editbar" id="habitEditBar" hidden><span>⠿ 拖动手柄调整顺序 · 👁️ 隐藏 · 📦 归档</span><button id="habitEditDone">完成</button></div>
       <div id="moodPicker"></div>
       <div id="habitList"></div>
       <div class="panel" style="margin:0 14px 12px">
         <h3 class="ptt">🗓️ 本月打卡热力图</h3>
         <div class="heatmap" id="habitHeatmap"></div>
         <div class="hm-legend">
-          <span><i class="d" style="background:#F0EDEA"></i>0%</span>
-          <span><i class="d" style="background:#D9EEFF"></i>1–33%</span>
-          <span><i class="d" style="background:#88D8DB"></i>34–66%</span>
-          <span><i class="d" style="background:#71B7ED"></i>67–100%</span>
+          <span><i class="d" style="background:var(--bg-soft)"></i>0%</span>
+          <span><i class="d" style="background:color-mix(in srgb,var(--accent) 26%,var(--bg))"></i>1–33%</span>
+          <span><i class="d" style="background:color-mix(in srgb,var(--accent) 55%,var(--bg))"></i>34–66%</span>
+          <span><i class="d" style="background:var(--accent)"></i>67–100%</span>
           <span class="hm-legend-tip">· 圆点＝当日打卡习惯（同色＝该习惯色）</span>
         </div>
       </div>
@@ -257,7 +259,7 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">GoalDay v16 · 周计划布局优化（移除周主题栏与底部日详情·双栏更大可用空间）× 独立日程视图（24 小时纵向时间轴·任务块拖动改时段/改时长·当日清单拖入排程·与周计划同源同步）× 打卡卡片整块点击编辑 × 灵感收集箱键盘交互 × 调色盘升级<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
+      <p class="set-note">GoalDay v17 · 配色日记每日一条可编辑（名称/心情/关键词/应用范围·月历色点点选展开）× 调色盘一键应用真正全局换肤（导航/Tab/按钮/热力图/图表联动·0.5s 平滑过渡）× 打卡习惯长按拖动排序 + 整理模式（隐藏/归档）× 打卡分类视图与清单分类双向联动 × 灵感收集箱键盘交互<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🗂️ 数据管理</h3>
@@ -265,7 +267,7 @@
         <span class="cd-t">🗑️ 清空当前数据</span>
         <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
       </button>
-      <div class="app-ver">GoalDay v16 · 莫兰迪 / 马卡龙奶油风</div>
+      <div class="app-ver">GoalDay v17 · 莫兰迪 / 马卡龙奶油风</div>
     </div>
   </div>
 </section>
@@ -342,6 +344,8 @@
     <h3>🌱 新增习惯</h3>
     <label>习惯名称<input id="hmName" type="text" maxlength="12" placeholder="例如：早起喝水"></label>
     <label>图标 Emoji<input id="hmEmoji" type="text" maxlength="2" placeholder="💧"></label>
+    <label>所属分类</label>
+    <div class="hm-cats" id="hmCats"></div>
     <label>标识色</label>
     <div class="swatches" id="hmColors"></div>
     <div class="modal-btns"><span class="flex1"></span><button id="hmCancel">取消</button><button id="hmSave" class="primary">创建</button></div>
