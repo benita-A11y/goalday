@@ -1180,3 +1180,35 @@ body.no-scroll{overflow:hidden;}
   .day-detail-mask{align-items:center;}
   .day-detail-sheet{max-width:480px;max-height:86vh;border-radius:20px;margin:auto;}
 }
+
+/* ═══ 周计划 · 日清单入口卡片 ═══ */
+.day-list-card{
+  display:flex;align-items:center;gap:10px;margin:10px 12px 8px;padding:12px 14px;
+  background:var(--bg);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 2px 8px rgba(120,110,100,.08);cursor:pointer;transition:transform .15s,box-shadow .15s;
+}
+.day-list-card:active{transform:scale(.98);}
+.dlc-ico{font-size:22px;flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 16%,var(--bg));}
+.dlc-main{flex:1;min-width:0;}
+.dlc-title{font-size:14.5px;font-weight:700;color:var(--ink);}
+.dlc-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* 单日详情页标题 */
+.dds-pagetitle{text-align:center;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1px;padding:2px 0;}
+.dds-head{flex-direction:column;align-items:stretch;gap:2px;}
+.dds-head .dds-back{align-self:flex-start;}
+.dds-head .dds-date{text-align:center;}
+
+/* 单元格滚动条：内容超出时出现 */
+.day-cell.has-scroll .chips::-webkit-scrollbar-thumb{background:rgba(120,110,100,.5);}
+
+/* ═══ 打卡 · 历史记录 ═══ */
+.hist-dims{margin:10px 14px 4px;}
+.rec-list{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+.rec-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 10px;border-radius:10px;background:var(--bg-soft);}
+.rec-d{color:var(--ink-soft);font-variant-numeric:tabular-nums;flex:none;}
+.rec-cat{font-size:11px;padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,var(--bg));color:var(--accent-deep,var(--ink));flex:none;white-space:nowrap;}
+.rec-h{flex:1;min-width:0;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rec-ok{color:#7FB89A;font-size:12px;flex:none;}
+.rec-row.rec-del{opacity:.7;}
+.dp-empty{text-align:center;color:var(--ink-soft);font-size:13px;padding:18px 12px;}
