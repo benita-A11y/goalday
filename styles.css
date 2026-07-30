@@ -1048,6 +1048,25 @@ body{min-height:100vh;min-height:100dvh;transition:background-color .5s ease;}
 .he-act:active{background:var(--bg-soft);}
 .hb-empty{text-align:center;color:var(--ink-soft);font-size:13.5px;padding:26px 16px;}
 
+/* 打卡分组标题（按分类分组 · 折叠/展开） */
+.hc-group{display:flex;align-items:center;gap:8px;margin:16px 14px 6px;padding:4px 2px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
+.hc-arrow{font-size:11px;color:var(--ink-soft);width:13px;text-align:center;transition:transform .2s;}
+.hc-group.collapsed .hc-arrow{transform:rotate(-90deg);}
+.hc-emoji{font-size:16px;line-height:1;}
+.hc-title{font-size:13.5px;font-weight:700;color:var(--ink);flex:1;letter-spacing:.3px;}
+.hc-count{font-size:11px;color:var(--ink-soft);background:var(--bg-soft);border-radius:999px;padding:1px 9px;}
+
+/* 分类按钮（桌面 hover 显示；移动端用右滑） */
+.hcat-btn{flex:none;font-size:16px;padding:6px 7px;border-radius:9px;opacity:0;transition:opacity .15s,background-color .2s;background:var(--bg-soft);border:1px solid var(--line);}
+.hcard:hover .hcat-btn{opacity:1;}
+.hcat-btn:active{background:var(--line);}
+
+/* 分类选择弹窗 */
+.cp-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;padding:4px 0;}
+.cp-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:11px;border:1px solid var(--line);background:var(--bg);font-size:14.5px;font-weight:600;color:var(--ink);text-align:left;}
+.cp-item:active{background:var(--bg-soft);}
+.cp-item[data-id]:not([data-id=""]){border-left:4px solid var(--c,var(--accent));}
+
 /* 已归档浮层 */
 .arch-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px;max-height:50vh;overflow-y:auto;}
 .arch-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--bg);}
