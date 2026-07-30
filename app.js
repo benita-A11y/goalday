@@ -45,10 +45,11 @@ function defaultState(){
     reviewDim:"week",
     dayDate:todayStr(), monthOffset:0,
     habits:[
-      {id:uid(),name:"早起喝水",emoji:"💧",color:"#88d8db",listId:l3,hidden:false,archived:false,checks:{},createdAt:Date.now(),category:"健康"},
-      {id:uid(),name:"阅读30分钟",emoji:"📖",color:"#b8aeeb",listId:l4,hidden:false,archived:false,checks:{},createdAt:Date.now(),category:"学习"},
+      {id:uid(),name:"早起喝水",emoji:"💧",color:"#88d8db",listId:l3,hidden:false,archived:false,checks:{},createdAt:Date.now()},
+      {id:uid(),name:"阅读30分钟",emoji:"📖",color:"#b8aeeb",listId:l4,hidden:false,archived:false,checks:{},createdAt:Date.now()},
     ],
     deletedHabits:[],
+    habitCollapse:{},
     pomo:{focusMin:25,breakMin:5,noise:false,records:[]},
     settings:{scheme:null,accent:null},
     activeTab:"todo",
@@ -93,14 +94,19 @@ function load(){
       if(!st.inspirations)st.inspirations=[];
       if(!st.annual)st.annual={};
       if(st.settings&&st.settings.accent===undefined)st.settings.accent=null;
-      /* v17：习惯字段归一化（分类/隐藏/归档） */
+      /* v18：习惯字段归一化（分类→清单 / 隐藏 / 归档） */
       (st.habits||[]).forEach(h=>{
         if(h.listId===undefined)h.listId=null;
         if(h.hidden===undefined)h.hidden=false;
         if(h.archived===undefined)h.archived=false;
-        if(h.category===undefined){const l=h.listId?st.lists.find(x=>x.id===h.listId):null;h.category=l?l.name:"未分类";}
+        /* 旧版自由分类字段 → 尽量按名称映射到现有清单；无法匹配则置未分类 */
+        if(h.category!==undefined){
+          if(!h.listId){const l=st.lists.find(x=>x.name===h.category);if(l)h.listId=l.id;}
+          delete h.category;
+        }
       });
       if(!st.deletedHabits)st.deletedHabits=[];
+      if(!st.habitCollapse)st.habitCollapse={};
       /* v11：灵感数据归一化（旧 {text,img,color} → 新 {status} 模型） */
       st.inspirations=(st.inspirations||[]).map(n=>({
         id:n.id||uid(),text:n.text||"",img:n.img||null,
@@ -128,6 +134,8 @@ function applyEmoji(){
 }
 function listOf(id){return state.lists.find(l=>l.id===id);}
 function colorOf(t){const l=listOf(t.listId);return l?l.color:"#b8aeeb";}
+function catOf(h){return listOf(h.listId)||null;}
+function catName(h){const l=listOf(h.listId);return l?l.name:"未分类";}
 function activeTasks(){return state.tasks.filter(t=>!t.abandoned);}
 let toastTimer=null;
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2200);}
@@ -1523,6 +1531,7 @@ let habitEditMode=false;     /* 整理顺序编辑模式 */
   const btn=$("#habitMenuBtn");if(!btn)return;
   btn.addEventListener("click",e=>{
     e.stopPropagation();
+    if(habitEditMode){habitEditMode=false;renderHabit();save();toast("顺序已保存 ✅");return;}
     closeTcMenu();
     const m=document.createElement("div");m.className="tc-menu show";m.id="tcMenu";
     const arch=state.habits.filter(h=>h.archived).length;
@@ -1578,19 +1587,19 @@ function habitsVisible(){
     /* history：展示全部打卡记录（含已归档），仅按分类筛选 */
     if(historyCat==="all")return true;
     if(historyCat==="del")return false;  /* 已删除单独在 deletedHabits 中 */
-    return h.category===historyCat;
+    return h.listId===historyCat;
   });
 }
-/* 历史记录分类标签：由用户自定义打卡项的「分类」自动生成（与「我的清单」无关） */
+/* 历史记录分类标签：由「我的清单」（用户自定义分类）生成，与打卡页实时同步 */
 function renderHistoryCats(box){
   if(!box)return;
   const alive=state.habits.filter(h=>!h.archived);
-  const cats=[...new Set(alive.map(h=>h.category||"未分类"))];
-  if(historyCat!=="all"&&historyCat!=="del"&&!cats.includes(historyCat))historyCat="all";
+  if(historyCat!=="all"&&historyCat!=="del"&&!listOf(historyCat))historyCat="all";
   let html=`<button class="hcat${historyCat==="all"?" on":""}" data-cat="all">📋 全部（${alive.length}）</button>`;
-  cats.forEach(c=>{
-    const n=alive.filter(h=>(h.category||"未分类")===c).length;
-    html+=`<button class="hcat${historyCat===c?" on":""}" data-cat="${esc(c)}">${esc(c)}（${n}）</button>`;
+  state.lists.forEach(l=>{
+    const n=alive.filter(h=>h.listId===l.id).length;
+    if(!n)return;   /* 无打卡的清单不显示 tab */
+    html+=`<button class="hcat${historyCat===l.id?" on":""}" data-cat="${l.id}" style="--cat:${l.color}">${l.emoji} ${esc(l.name)}（${n}）</button>`;
   });
   if((state.deletedHabits||[]).length)html+=`<button class="hcat${historyCat==="del"?" on":""}" data-cat="del">🗑️ 已删除习惯（${state.deletedHabits.length}）</button>`;
   box.innerHTML=html;
@@ -1611,6 +1620,7 @@ function renderHabit(){
   $("#habitMain").hidden=habitTab!=="main";
   $("#habitHistory").hidden=habitTab!=="history";
   const eb=$("#habitEditBar");if(eb)eb.hidden=!(habitTab==="main"&&habitEditMode);
+  const mb=$("#habitMenuBtn");if(mb)mb.textContent=(habitTab==="main"&&habitEditMode)?"取消整理（完成）":"⋯";
   if(habitTab==="main"){renderHabitHeatmap();renderHabitList();}   /* 主页：不显示分类标签，保持干净 */
   else renderHabitHistory();
 }
@@ -1653,63 +1663,115 @@ function renderHabitList(){
   if(!pool.length){
     const tip=document.createElement("div");tip.className="hb-empty";
     tip.textContent="💡 还没有习惯哦，去新增一个吧";
-    box.appendChild(tip);
+    box.appendChild(tip);appendHabitAdd(box);return;
   }
-  pool.forEach(h=>{
-    const total=Object.keys(h.checks).length;
-    const streak=streakOf(h);
-    const now=new Date();
-    const daysSoFar=now.getDate();
-    const monthCnt=Object.keys(h.checks).filter(ds=>ds.startsWith(fmtDate(now).slice(0,7))).length;
-    const pct=Math.min(100,Math.round(monthCnt/daysSoFar*100));
-    const cat=h.category||"未分类";
-    const card=document.createElement("div");card.className="hcard"+(h.hidden?" hh":"");
-    card.dataset.id=h.id;
-    card.innerHTML=`${habitEditMode?`<button class="hgrip" title="拖动排序">⠿</button>`:""}
-      <div class="hico" style="background:${h.color}33">${h.emoji}</div>
-      <div class="hbody"><div class="hname">${esc(h.name)}<span class="hcat-tag">${esc(cat)}</span></div>
-      <div class="hmeta">累计 ${total} 次 · 连续 ${streak} 天 🔥 · 本月完成率 ${pct}%</div>
-      <div class="hbar"><i style="width:${pct}%;background:${h.color}"></i></div></div>`;
-    if(habitEditMode){
-      /* 编辑模式：隐藏/归档按钮 + 手柄拖拽 */
-      const eye=document.createElement("button");
-      eye.className="he-act";eye.textContent=h.hidden?"🙈":"👁️";eye.title=h.hidden?"点击显示":"点击隐藏";
-      eye.addEventListener("click",e=>{e.stopPropagation();h.hidden=!h.hidden;save();renderHabit();toast(h.hidden?"已隐藏（数据保留）🙈":"已恢复显示 👁️");});
-      const arch=document.createElement("button");
-      arch.className="he-act";arch.textContent="📦";arch.title="归档";
-      arch.addEventListener("click",e=>{e.stopPropagation();h.archived=true;save();renderHabit();toast("已归档「"+h.name+"」📦 可在 ⋯ 菜单找回");});
-      card.appendChild(eye);card.appendChild(arch);
-      enableHabitDrag(card,h,card.querySelector(".hgrip"));
-    }else{
-      const chk=document.createElement("button");
-      const on=!!h.checks[todayStr()];
-      chk.className="hchk"+(on?" on":"");
-      chk.setAttribute("aria-label",on?"已打卡":"打卡");
-      chk.addEventListener("click",e=>{
-        e.stopPropagation();   /* 勾选按钮只负责打卡，不触发卡片编辑 */
-        if(h.checks[todayStr()])delete h.checks[todayStr()];
-        else{h.checks[todayStr()]=1;toast("打卡成功 ✅ 连续 "+(streakOf(h))+" 天！");if(navigator.vibrate)navigator.vibrate(15);}
-        renderHabit();save();
-      });
-      card.appendChild(chk);
-      card.style.cursor="pointer";
-      card.addEventListener("contextmenu",e=>{e.preventDefault();delHabit(h.id);});
-      /* 整块卡片（除右侧勾选按钮）点击 → 打开编辑弹窗；长按 → 拖拽排序 */
-      card.addEventListener("click",e=>{
-        if(e.target===chk)return;
-        if(card._dragged){card._dragged=false;return;}   /* 拖拽后抑制误触编辑 */
-        openHabitModal(h);
-      });
-      enableHabitDrag(card,h,null);   /* 长按 350ms 进入拖拽 */
-    }
-    box.appendChild(card);
+  /* 分组：按清单（listId）顺序；未分类置底；空组自动隐藏 */
+  const groups=[];
+  state.lists.forEach(l=>{const hs=pool.filter(h=>h.listId===l.id);if(hs.length)groups.push({key:l.id,name:l.name,emoji:l.emoji,color:l.color,list:l,habits:hs});});
+  const uncat=pool.filter(h=>!h.listId||!listOf(h.listId));
+  if(uncat.length)groups.push({key:"uncat",name:"未分类",emoji:"🗂️",color:"#b8aeeb",list:null,habits:uncat});
+  groups.forEach(g=>{
+    const collapsed=habitEditMode?false:!!state.habitCollapse[g.key];
+    const header=document.createElement("div");header.className="hc-group"+(collapsed?" collapsed":"");
+    header.innerHTML=`<span class="hc-arrow">${collapsed?"▸":"▾"}</span>
+      <span class="hc-emoji">${g.emoji}</span>
+      <span class="hc-title">${esc(g.name)}</span>
+      <span class="hc-count">${g.habits.length}</span>`;
+    if(!habitEditMode)header.addEventListener("click",()=>{state.habitCollapse[g.key]=!collapsed;save();renderHabit();});
+    box.appendChild(header);
+    if(!collapsed)g.habits.forEach(h=>box.appendChild(buildHabitCard(h)));
   });
-  if(!habitEditMode){
-    const add=document.createElement("button");
-    add.className="drawer-add";add.textContent="➕ 新增习惯";
-    add.addEventListener("click",()=>openHabitModal());
-    box.appendChild(add);
+  appendHabitAdd(box);
+}
+function appendHabitAdd(box){
+  if(habitEditMode)return;
+  const add=document.createElement("button");
+  add.className="drawer-add";add.textContent="➕ 新增习惯";
+  add.addEventListener("click",()=>openHabitModal());
+  box.appendChild(add);
+}
+/* 单条打卡卡片（按编辑/普通模式渲染 + 右滑/悬浮分类指派） */
+function buildHabitCard(h){
+  const total=Object.keys(h.checks).length;
+  const streak=streakOf(h);
+  const now=new Date();
+  const daysSoFar=now.getDate();
+  const monthCnt=Object.keys(h.checks).filter(ds=>ds.startsWith(fmtDate(now).slice(0,7))).length;
+  const pct=Math.min(100,Math.round(monthCnt/daysSoFar*100));
+  const cat=catOf(h);
+  const card=document.createElement("div");card.className="hcard"+(h.hidden?" hh":"");
+  card.dataset.id=h.id;
+  card.innerHTML=`${habitEditMode?`<button class="hgrip" title="拖动排序">⠿</button>`:""}
+    <div class="hico" style="background:${h.color}33">${h.emoji}</div>
+    <div class="hbody"><div class="hname">${esc(h.name)}<span class="hcat-tag" style="${cat?`background:${cat.color}22;color:${cat.color}`:""}">${esc(catName(h))}</span></div>
+    <div class="hmeta">累计 ${total} 次 · 连续 ${streak} 天 🔥 · 本月完成率 ${pct}%</div>
+    <div class="hbar"><i style="width:${pct}%;background:${h.color}"></i></div></div>
+    ${habitEditMode?"":`<button class="hcat-btn" title="设置分类">🏷️</button>`}`;
+  if(habitEditMode){
+    /* 编辑模式：隐藏/归档按钮 + 手柄拖拽；禁用打卡点击与右滑 */
+    const eye=document.createElement("button");
+    eye.className="he-act";eye.textContent=h.hidden?"🙈":"👁️";eye.title=h.hidden?"点击显示":"点击隐藏";
+    eye.addEventListener("click",e=>{e.stopPropagation();h.hidden=!h.hidden;save();renderHabit();toast(h.hidden?"已隐藏（数据保留）🙈":"已恢复显示 👁️");});
+    const arch=document.createElement("button");
+    arch.className="he-act";arch.textContent="📦";arch.title="归档";
+    arch.addEventListener("click",e=>{e.stopPropagation();h.archived=true;save();renderHabit();toast("已归档「"+h.name+"」📦 可在 ⋯ 菜单找回");});
+    card.appendChild(eye);card.appendChild(arch);
+    enableHabitDrag(card,h,card.querySelector(".hgrip"));
+  }else{
+    const chk=document.createElement("button");
+    const on=!!h.checks[todayStr()];
+    chk.className="hchk"+(on?" on":"");
+    chk.setAttribute("aria-label",on?"已打卡":"打卡");
+    chk.addEventListener("click",e=>{
+      e.stopPropagation();   /* 勾选按钮只负责打卡，不触发卡片编辑 */
+      if(h.checks[todayStr()])delete h.checks[todayStr()];
+      else{h.checks[todayStr()]=1;toast("打卡成功 ✅ 连续 "+(streakOf(h))+" 天！");if(navigator.vibrate)navigator.vibrate(15);}
+      renderHabit();save();
+    });
+    card.appendChild(chk);
+    card.style.cursor="pointer";
+    const cb=card.querySelector(".hcat-btn");
+    if(cb)cb.addEventListener("click",e=>{e.stopPropagation();openCatPicker(h);});
+    /* 右滑（移动端）→ 唤起分类选择；编辑模式禁用 */
+    let sx=0,sy=0,t0=0,tracking=false;
+    card.addEventListener("pointerdown",e=>{
+      if(habitEditMode||e.target.closest(".hchk,.he-act,.hcat-btn"))return;
+      sx=e.clientX;sy=e.clientY;t0=Date.now();tracking=true;
+    });
+    card.addEventListener("pointerup",e=>{
+      if(!tracking)return;tracking=false;
+      if(habitEditMode||card._dragged)return;
+      const dx=e.clientX-sx,dy=e.clientY-sy,dt=Date.now()-t0;
+      if(dt<400&&dx>60&&dx>Math.abs(dy)*1.5){card._swiped=true;openCatPicker(h);}
+    });
+    card.addEventListener("contextmenu",e=>{e.preventDefault();delHabit(h.id);});
+    card.addEventListener("click",e=>{
+      if(e.target===chk||e.target.closest(".hcat-btn"))return;
+      if(card._dragged){card._dragged=false;return;}   /* 拖拽后抑制误触编辑 */
+      if(card._swiped){card._swiped=false;return;}     /* 右滑后抑制误触编辑 */
+      openHabitModal(h);
+    });
+    enableHabitDrag(card,h,null);   /* 长按 350ms 进入拖拽 */
   }
+  return card;
+}
+/* 分类指派弹窗：读取「我的清单」全部自定义分类，不生成额外分类 */
+function openCatPicker(h){
+  const ov=document.createElement("div");ov.className="mask show";
+  const rows=[`<button class="cp-item" data-id="">🗂️ 未分类</button>`]
+    .concat(state.lists.map(l=>`<button class="cp-item" data-id="${l.id}" style="--c:${l.color}">${l.emoji} ${esc(l.name)}</button>`));
+  ov.innerHTML=`<div class="modal show" style="max-width:420px"><h3>🏷️ 选择分类</h3>
+    <div class="cp-list">${rows.join("")}</div>
+    <div class="modal-btns"><span class="flex1"></span><button class="modal-cancel" id="cpClose">取消</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelectorAll(".cp-item").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.id||null;
+    h.listId=id;save();ov.remove();renderHabit();
+    toast(id?("已归入「"+listOf(id).name+"」✅"):"已设为未分类");
+  });
+  ov.querySelector("#cpClose").onclick=()=>ov.remove();
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+  applyEmoji();
 }
 /* ── 习惯拖拽排序（长按浮起 / 编辑模式手柄直接拖） ── */
 function enableHabitDrag(card,h,handle){
@@ -1785,7 +1847,7 @@ function delHabit(id){
   const h=state.habits.find(x=>x.id===id);if(!h)return;
   if(confirm(`删除习惯「${h.name}」？\n其打卡记录会保留在「历史记录 · 已删除习惯」中，可随时查看。`)){
     state.deletedHabits=state.deletedHabits||[];
-    state.deletedHabits.push({id:h.id,name:h.name,emoji:h.emoji,color:h.color,category:h.category||"未分类",checks:h.checks||{},deletedAt:Date.now()});
+    state.deletedHabits.push({id:h.id,name:h.name,emoji:h.emoji,color:h.color,listId:h.listId,category:catName(h),checks:h.checks||{},deletedAt:Date.now()});
     state.habits=state.habits.filter(x=>x.id!==id);
     renderHabit();save();toast("已删除，记录已归档到历史记录 🗑️");
   }
@@ -1824,12 +1886,12 @@ function renderHabitHistory(){
   if(historyDim==="week"||historyDim==="month"){
     let labels=[],vals=[],colors=[];
     if(historyCat==="all"){
-      const cats=[...new Set(pool.map(h=>h.category||"未分类"))];
-      cats.forEach(c=>{const hs=pool.filter(h=>(h.category||"未分类")===c);labels.push(c);vals.push(catRate(wk,hs));colors.push("#88d8db");});
+      const cls=state.lists.filter(l=>pool.some(h=>h.listId===l.id));
+      cls.forEach(l=>{const hs=pool.filter(h=>h.listId===l.id);labels.push(l.emoji+l.name);vals.push(catRate(wk,hs));colors.push(l.color);});
     }else{
       pool.forEach(h=>{labels.push(h.emoji+h.name);vals.push(catRate(wk,h));colors.push(h.color);});
     }
-    panel.innerHTML=`<h3 class="ptt">${historyDim==="week"?"📅 本周":"🗓️ 本月"}打卡完成率${historyCat==="all"?"（按分类）":"（"+esc(historyCat)+"）"}</h3>`;
+    panel.innerHTML=`<h3 class="ptt">${historyDim==="week"?"📅 本周":"🗓️ 本月"}打卡完成率（${historyCat==="all"?"按分类":esc(listOf(historyCat)?listOf(historyCat).name:historyCat)}）</h3>`;
     if(labels.length){
       const cv=document.createElement("canvas");cv.height=Math.max(150,labels.length*30+44);cv.style.width="100%";
       panel.appendChild(cv);drawBars(cv,labels,vals,"#71b7ed");
@@ -1841,7 +1903,7 @@ function renderHabitHistory(){
       for(let i=1;i<=n;i++)ds.push(fmtDate(new Date(year,m,i)));
       months.push((m+1)+"月");a.push(catRate(ds,pool));b.push(100);
     }
-    panel.innerHTML=`<h3 class="ptt">🏆 ${year} 年打卡完成率趋势（${historyCat==="all"?"全部分类":esc(historyCat)}）</h3>`;
+    panel.innerHTML=`<h3 class="ptt">🏆 ${year} 年打卡完成率趋势（${historyCat==="all"?"全部分类":esc(listOf(historyCat)?listOf(historyCat).name:historyCat)}）</h3>`;
     const cv=document.createElement("canvas");cv.height=200;cv.style.width="100%";
     panel.appendChild(cv);drawLine(cv,months,a,b);
   }
@@ -1873,7 +1935,7 @@ function renderHabitHistory(){
     const ul=document.createElement("div");ul.className="rec-list";
     recs.slice(0,20).forEach(r=>{
       const row=document.createElement("div");row.className="rec-row";
-      row.innerHTML=`<span class="rec-d">${md(r.ds)}</span><span class="rec-cat">${esc(r.h.category||"未分类")}</span><span class="rec-h">${r.h.emoji} ${esc(r.h.name)}</span><span class="rec-ok">✅ 已打卡</span>`;
+      row.innerHTML=`<span class="rec-d">${md(r.ds)}</span><span class="rec-cat">${esc(catName(r.h))}</span><span class="rec-h">${r.h.emoji} ${esc(r.h.name)}</span><span class="rec-ok">✅ 已打卡</span>`;
       ul.appendChild(row);
     });
     list.appendChild(ul);
@@ -1902,23 +1964,14 @@ function renderDeletedHistory(panel){
 }
 let habitColor=PALETTE[3];
 let editingHabit=null;
-let habitCatSel=null;   /* 弹窗中选中的分类（null=未分类） */
-/* 弹窗分类选择：由用户自定义分类（独立于「我的清单」，支持 + 新建分类） */
+let habitCatSel=null;   /* 弹窗中选中的分类（null/""=未分类 = 清单 id 或 null） */
+/* 弹窗分类选择：读取「我的清单」全部自定义分类（不新建；新建分类请到清单页） */
 function renderHmCats(){
   const box=$("#hmCats");if(!box)return;
-  const cats=[...new Set(state.habits.map(h=>h.category||"未分类"))];
-  let html=`<button class="hmc${!habitCatSel?" on":""}" data-cat="">未分类</button>`;
-  cats.forEach(c=>{html+=`<button class="hmc${habitCatSel===c?" on":""}" data-cat="${esc(c)}">${esc(c)}</button>`;});
-  html+=`<button class="hmc hmc-new" data-new="1">＋ 新建分类</button>`;
+  let html=`<button class="hmc${!habitCatSel?" on":""}" data-id="">🗂️ 未分类</button>`;
+  state.lists.forEach(l=>{html+=`<button class="hmc${habitCatSel===l.id?" on":""}" data-id="${l.id}" style="--cat:${l.color}">${l.emoji} ${esc(l.name)}</button>`;});
   box.innerHTML=html;
-  box.querySelectorAll(".hmc").forEach(b=>b.addEventListener("click",()=>{
-    if(b.dataset.new){
-      const name=prompt("新分类名称（如：运动 / 健康 / 学习 / 生活 / 工作）：");
-      if(name&&name.trim()){habitCatSel=name.trim();renderHmCats();}
-      return;
-    }
-    habitCatSel=b.dataset.cat||"";renderHmCats();
-  }));
+  box.querySelectorAll(".hmc").forEach(b=>b.addEventListener("click",()=>{habitCatSel=b.dataset.id||null;renderHmCats();}));
 }
 function openHabitModal(habit){
   editingHabit=habit||null;
@@ -1927,13 +1980,13 @@ function openHabitModal(habit){
     $("#hmName").value=habit.name;
     $("#hmEmoji").value=habit.emoji||"";
     habitColor=habit.color||PALETTE[3];
-    habitCatSel=habit.category||"";
+    habitCatSel=habit.listId||"";
     if(h3)h3.textContent="✏️ 编辑习惯";
     $("#hmSave").textContent="保存";
   }else{
     $("#hmName").value="";$("#hmEmoji").value="";
     habitColor=PALETTE[3];
-    habitCatSel=(historyCat&&historyCat!=="all"&&historyCat!=="del")?historyCat:"";  /* 历史分类下新建默认归入当前分类 */
+    habitCatSel=(historyCat&&historyCat!=="all"&&historyCat!=="del"&&listOf(historyCat))?historyCat:"";  /* 历史分类下新建默认归入当前分类 */
     if(h3)h3.textContent="🌱 新增习惯";
     $("#hmSave").textContent="创建";
   }
@@ -1947,10 +2000,10 @@ $("#hmSave").addEventListener("click",()=>{
   const emoji=$("#hmEmoji").value.trim()||"🌱";
   if(editingHabit){
     editingHabit.name=name;editingHabit.emoji=emoji;editingHabit.color=habitColor;
-    editingHabit.category=habitCatSel||"未分类";editingHabit.listId=null;
+    editingHabit.listId=habitCatSel||null;delete editingHabit.category;
     closeModal();renderHabit();save();toast("习惯已更新 ✏️");
   }else{
-    state.habits.push({id:uid(),name,emoji,color:habitColor,category:habitCatSel||"未分类",listId:null,hidden:false,archived:false,checks:{},createdAt:Date.now()});
+    state.habits.push({id:uid(),name,emoji,color:habitColor,listId:habitCatSel||null,hidden:false,archived:false,checks:{},createdAt:Date.now()});
     closeModal();renderHabit();save();toast("习惯已创建 🌱");
   }
 });
@@ -2496,7 +2549,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v8";
+  const SW_URL="sw.js?__v=jihua-v9";
   window.addEventListener("load",()=>{navigator.serviceWorker.register(SW_URL).catch(()=>{});});
   navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());
 }
