@@ -1120,8 +1120,9 @@ body.no-scroll{overflow:hidden;}
 }
 /* 遮罩 + 底部滑入卡片 */
 .day-detail-mask{position:fixed;inset:0;z-index:88;background:rgba(0,0,0,.4);
-  display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .3s ease;}
-.day-detail-mask.open{opacity:1;}
+  display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .3s ease;
+  visibility:hidden;pointer-events:none;}
+.day-detail-mask.open{opacity:1;visibility:visible;pointer-events:auto;}
 .day-detail-sheet{width:100%;max-width:480px;background:#FFF8F0;border-radius:20px 20px 0 0;
   max-height:90vh;display:flex;flex-direction:column;overflow:hidden;
   transform:translateY(100%);transition:transform .3s ease-out;box-shadow:0 -10px 40px rgba(0,0,0,.2);}
