@@ -1,5 +1,5 @@
 /* GoalDay Service Worker - 离线可用 + 每次刷新拉取最新 */
-const CACHE = "jihua-v8";
+const CACHE = "jihua-v9";
 const ASSETS = [
   "./",
   "./index.html",
