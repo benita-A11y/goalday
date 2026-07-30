@@ -238,15 +238,18 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🎨 主题配色</h3>
-      <div class="theme-list" id="themeList">
-        <button class="theme-item" data-t="princess"><span class="tdot" style="background:linear-gradient(135deg,#FFF5F7,#FFD6E0)"></span><span class="tname">👑 公主色系</span><small>粉嫩甜心</small></button>
-        <button class="theme-item" data-t="flower"><span class="tdot" style="background:linear-gradient(135deg,#FFF8F0,#FFE0D6)"></span><span class="tname">💐 花束色系</small><small>缤纷柔和</small></button>
-        <button class="theme-item" data-t="morandi"><span class="tdot" style="background:linear-gradient(135deg,#F5F0EB,#D5CFC5)"></span><span class="tname">🍂 莫兰迪色系</span><small>高级灰调</small></button>
-        <button class="theme-item" data-t="macaron"><span class="tdot" style="background:linear-gradient(135deg,#FFFDF5,#D9EEFF)"></span><span class="tname">🍡 马卡龙色系</span><small>奶fufu</small></button>
+      <div class="theme-list sys-chips" id="themeList">
+        <button class="theme-item" data-sys="red"><span class="tdot" style="background:#C77B6E"></span><span class="tname">🔴 红色系</span></button>
+        <button class="theme-item" data-sys="orange"><span class="tdot" style="background:#D99A5B"></span><span class="tname">🟠 橙色系</span></button>
+        <button class="theme-item" data-sys="yellow"><span class="tdot" style="background:#E0C05C"></span><span class="tname">🟡 黄色系</span></button>
+        <button class="theme-item" data-sys="green"><span class="tdot" style="background:#7FB89A"></span><span class="tname">🟢 绿色系</span></button>
+        <button class="theme-item" data-sys="cyan"><span class="tdot" style="background:#6FB6C9"></span><span class="tname">🩵 青色系</span></button>
+        <button class="theme-item" data-sys="blue"><span class="tdot" style="background:#6F9FD6"></span><span class="tname">🔵 蓝色系</span></button>
+        <button class="theme-item" data-sys="purple"><span class="tdot" style="background:#9B8EC9"></span><span class="tname">🟣 紫色系</span></button>
       </div>
-      <div class="theme-preview" id="themePreview"></div>
+      <div class="sys-schemes" id="sysSchemes"></div>
       <div class="theme-custom" id="themeCustom"></div>
-      <p class="set-note">🎨 「我的收藏色」来自「调色盘 → 我的收藏」，点一下即设为全局主色，应用到清单圆点、热力图、图表与灵感圆点。</p>
+      <p class="set-note">🎨 选一个色系，点开里面的配色方案即可一键应用到全局；想要更个性化，可在下方「我的收藏色」单独指定主色微调。</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🔔 智能提醒</h3>
@@ -372,12 +375,7 @@
 
     <!-- 模块三：灵感补给 -->
     <div class="panel pal-inspire">
-      <h3 class="ptt">💡 灵感补给</h3>
-      <div class="pal-tabs" id="inspireTabs">
-        <button data-tab="hot" class="active">🔥 热门推荐</button>
-        <button data-tab="season">🌸 季节限定</button>
-        <button data-tab="net">🌐 全网精选</button>
-      </div>
+      <h3 class="ptt">💡 灵感补给 <small class="ptt-sub">🌐 全网热门配色</small></h3>
       <div class="inspire-stream" id="inspireStream"></div>
     </div>
 
