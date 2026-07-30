@@ -2375,7 +2375,13 @@ function closeModal(){
 $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();});
 
 /* ═══════════ PWA & 启动 ═══════════ */
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+/* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
+   同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
+if("serviceWorker" in navigator){
+  const SW_URL="sw.js?__v=jihua-v5";
+  window.addEventListener("load",()=>{navigator.serviceWorker.register(SW_URL).catch(()=>{});});
+  navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());
+}
 /* 注册全部配色方案并应用已保存方案（无则使用默认莫兰迪基底） */
 COLOR_SYSTEMS.forEach(sys=>sys.schemes.forEach(sc=>registerScheme(sc.key,sc.colors)));
 if(typeof INSPIRE_HOT5!=="undefined")INSPIRE_HOT5.forEach(p=>registerScheme(p.key,p.colors));
