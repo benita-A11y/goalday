@@ -17,6 +17,18 @@ if(!state.palette)state.palette={favs:[],colors:[],lastInspire:null};
 if(!state.palette.favs)state.palette.favs=[];
 if(!state.palette.colors)state.palette.colors=[];
 if(!state.palette.diary)state.palette.diary=[];
+/* v17：配色日记每天仅一条（老数据去重，保留每天最新一条）+ keywords 字段兜底 */
+(function(){
+  const seen={},out=[];
+  (state.palette.diary||[]).forEach(d=>{
+    if(!d||!d.date)return;
+    if(seen[d.date])return;
+    seen[d.date]=1;
+    if(!Array.isArray(d.keywords))d.keywords=[];
+    out.push(d);
+  });
+  state.palette.diary=out;
+})();
 if(state.palette.dailyEmotion===undefined)state.palette.dailyEmotion=null;
 if(state.palette.dailyMood===undefined)state.palette.dailyMood=null;
 if(!state.palette.seasonSeen)state.palette.seasonSeen={};
@@ -338,42 +350,82 @@ function renderDaily(){
   box.querySelectorAll(".pd-alt-use").forEach(b=>b.onclick=()=>{const pp=de.palettes[+b.dataset.alt];applyPaletteToTheme(pp.colors,pp.name,pp.names);});
   box.querySelector("#pdMood").onclick=openMoodModal;
 }
-/* 一键应用：全局主色 + 自动生成配色日记 */
+/* 一键应用：全局主色 + 自动生成配色日记（v17：真正全局应用） */
 function applyPaletteToTheme(colors,name,names){
   state.settings.accent=(colors&&colors[0])||"#A99B95";
   applyAccent();
   addDiary(colors,name||"今日配色",["清单","打卡","周计划","图表"],names);
   renderSettings();renderDiaryPrev();
+  if(typeof renderHabit==="function"){try{renderHabit();}catch(e){}}
   save();
-  toast("已应用配色 🎨");
+  toast("✅ 配色已应用到全局");
 }
-/* 自动记录配色日记 */
+/* 自动记录配色日记（v17：每天仅一条，当天重复应用则覆盖更新） */
 function addDiary(colors,name,scope,names){
   if(!state.palette.diary)state.palette.diary=[];
   const now=new Date();
   const d=fmtDate(now);
   const t=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
-  state.palette.diary.unshift({date:d,time:t,name:name||"我的配色",colors:(colors||[]).slice(0,5),names:(names&&names.slice)?names.slice(0,5):colors.slice(0,5),scope:scope||["清单"],mood:state.palette.dailyMood||""});
+  const cols=(colors||[]).slice(0,5);
+  const nms=(names&&names.slice)?names.slice(0,5):cols.slice();
+  const exist=state.palette.diary.find(x=>x.date===d);
+  if(exist){ /* 覆盖更新当天条目（保留用户已写的备注/关键词） */
+    exist.time=t;exist.name=name||exist.name||"我的配色";
+    exist.colors=cols;exist.names=nms;exist.scope=scope||exist.scope||["清单"];
+    if(!Array.isArray(exist.keywords))exist.keywords=[];
+    if(!exist.mood)exist.mood=state.palette.dailyMood||"";
+  }else{
+    state.palette.diary.unshift({date:d,time:t,name:name||"我的配色",colors:cols,names:nms,scope:scope||["清单"],mood:state.palette.dailyMood||"",keywords:[]});
+  }
   if(state.palette.diary.length>200)state.palette.diary.length=200;
+}
+/* v17：日记条目可编辑表单（预览卡 + 完整页共用） */
+const DIARY_SCOPES=["清单","打卡","周计划","图表"];
+function diaryFormHTML(d,pfx){
+  const kw=(d.keywords||[]).join("、");
+  return `
+    <div class="dp-field"><span class="lbl">🎨 配色名称</span><input class="val edit" id="${pfx}Name" type="text" maxlength="20" value="${esc(d.name||"")}" placeholder="给这套配色起个名字" style="border:0;background:transparent;font-size:12.5px;color:var(--ink);outline:none;border-bottom:1px dashed var(--line)"></div>
+    <div class="dp-field"><span class="lbl">💬 心情备注</span><input class="val edit" id="${pfx}Mood" type="text" maxlength="60" value="${esc(d.mood||"")}" placeholder="今天的小心情…" style="border:0;background:transparent;font-size:12.5px;color:var(--ink);outline:none;border-bottom:1px dashed var(--line)"></div>
+    <div class="dp-field"><span class="lbl">🔖 关键词</span><input class="val edit" id="${pfx}Kw" type="text" value="${esc(kw)}" placeholder="1-3 个，用、分隔（如：治愈、温柔）" style="border:0;background:transparent;font-size:12.5px;color:var(--ink);outline:none;border-bottom:1px dashed var(--line)"></div>
+    <div class="dp-scopes" id="${pfx}Scopes">${DIARY_SCOPES.map(s=>`<label><input type="checkbox" value="${s}"${(d.scope||[]).includes(s)?" checked":""}>${s}</label>`).join("")}</div>
+    <button class="dp-save" id="${pfx}Save">💾 保存</button>`;
+}
+function bindDiaryForm(box,d,pfx,after){
+  const btn=box.querySelector("#"+pfx+"Save");if(!btn)return;
+  btn.addEventListener("click",()=>{
+    d.name=(box.querySelector("#"+pfx+"Name").value.trim()||"我的配色");
+    d.mood=box.querySelector("#"+pfx+"Mood").value.trim();
+    let kws=box.querySelector("#"+pfx+"Kw").value.split(/[、,，\s]+/).map(x=>x.trim()).filter(Boolean);
+    if(kws.length>3){kws=kws.slice(0,3);toast("关键词最多 3 个，已保留前 3 个");}
+    d.keywords=kws;
+    d.scope=[...box.querySelectorAll("#"+pfx+"Scopes input:checked")].map(i=>i.value);
+    save();toast("已保存配色日记 💾");
+    if(after)after();
+  });
 }
 
 /* ── 模块二：配色日记 ── */
 function renderDiaryPrev(){
   const box=$("#palDiaryPrev");if(!box)return;
   const list=state.palette.diary||[];
-  if(!list.length){box.innerHTML=`<div class="dp-head"><b>📖 配色日记</b><span class="dp-more">查看全部 →</span></div><div class="dp-empty">还没有配色记录，应用一套配色后会自动生成 📝</div>`;return;}
-  const d=list[0];
+  if(!list.length){box.innerHTML=`<div class="dp-head"><b>📖 配色日记</b><span class="dp-more">查看全部 →</span></div><div class="dp-empty">还没有配色记录，应用一套配色后会自动生成 📝（每天仅一条，当天重复应用会覆盖更新）</div>`;return;}
+  const today=fmtDate(new Date());
+  const d=list.find(x=>x.date===today)||list[0];
   box.innerHTML=`<div class="dp-head"><b>📖 配色日记</b><span class="dp-more">查看全部 →</span></div>
-    <div class="dp-when">${d.date} ${d.time||""}</div>
+    <div class="dp-when">${d.date} ${d.time||""}${d.date===today?" · 今天":""}</div>
     <div class="dp-cards">${d.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div>
-    <div class="dp-names">${esc(d.name)} · ${esc((d.names||d.colors).join(" · "))}</div>
-    ${d.mood?`<div class="dp-mood">💬 “${esc(d.mood)}”</div>`:""}
-    <div class="dp-scope">📍 已应用到：${(d.scope||[]).join(" · ")}</div>`;
+    <div class="dp-names">${esc((d.names||d.colors).join(" · "))}</div>
+    ${(d.keywords&&d.keywords.length)?`<div class="dp-kws" style="margin-top:6px">${d.keywords.map(k=>`<span class="dp-kw">${esc(k)}</span>`).join("")}</div>`:""}
+    ${diaryFormHTML(d,"dpv")}`;
+  /* 阻止表单区域点击冒泡到「查看全部」 */
+  box.querySelectorAll("input,button,.dp-scopes").forEach(el=>el.addEventListener("click",e=>e.stopPropagation()));
+  bindDiaryForm(box,d,"dpv",()=>{renderDiaryPrev();});
 }
 function openDiary(){
   const page=$("#diaryPage");if(!page)return;
   page.hidden=false;page.scrollTop=0;renderDiary();applyEmoji();
 }
+let diaryOpenDate=null; /* v17：当前展开详情的日期 */
 function renderDiary(){
   const body=$("#diaryBody");if(!body)return;
   const diary=state.palette.diary||[];
@@ -387,23 +439,63 @@ function renderDiary(){
   for(let d=1;d<=days;d++){
     const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const has=mark[ds];
-    cal+=`<div class="dc${has?" has":""}${d===now.getDate()?" today":""}">${d}</div>`;
+    cal+=`<div class="dc${has?" has":""}${d===now.getDate()?" today":""}${diaryOpenDate===ds?" sel":""}"${has?` data-ds="${ds}" style="--dcolor:${mark[ds]}"`:""}>${d}</div>`;
   }
   cal+=`</div>`;
-  let html=`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:4px">● 有配色记录的日子</div>${cal}`;
+  let html=`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:4px">● 有配色记录的日子 · 点日期展开详情（每天仅一条）</div>${cal}`;
+  /* 点选日期 → 展开当天详情（可编辑） */
+  if(diaryOpenDate){
+    const idx=diary.findIndex(x=>x.date===diaryOpenDate);
+    if(idx>=0){
+      const d=diary[idx];
+      html+=`<div class="diary-detail">
+        <div class="de-when"><span>📅 ${d.date} ${d.time||""}</span></div>
+        <div class="de-cards">${d.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div>
+        <div class="de-names">${esc((d.names||d.colors).join(" · "))}</div>
+        ${diaryFormHTML(d,"dd")}
+        <button class="set-btn" id="ddDel" style="margin-top:8px;color:var(--red)">🗑 删除这一天的日记</button>
+      </div>`;
+    }
+  }
   if(!diary.length)html+=`<div class="dp-empty" style="padding:20px">还没有配色日记，应用配色会自动记录 ✨</div>`;
   diary.forEach((d,i)=>{
-    html+=`<div class="diary-entry" data-i="${i}">
+    html+=`<div class="diary-entry" data-i="${i}" data-ds="${d.date}">
       <div class="de-when"><span>${d.date} ${d.time||""}</span>${d.mood?"💬":""}</div>
       <div class="de-cards">${d.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div>
       <div class="de-name">${esc(d.name||"我的配色")}</div>
       <div class="de-names">${esc((d.names||d.colors).join(" · "))}</div>
+      ${(d.keywords&&d.keywords.length)?`<div class="dp-kws" style="margin-top:5px">${d.keywords.map(k=>`<span class="dp-kw">${esc(k)}</span>`).join("")}</div>`:""}
       ${d.scope&&d.scope.length?`<div class="de-scope">📍 ${esc(d.scope.join(" · "))}</div>`:""}
       ${d.mood?`<div class="de-mood">💬 “${esc(d.mood)}”</div>`:""}
     </div>`;
   });
   body.innerHTML=html;
+  /* 月历点击展开 */
+  body.querySelectorAll(".dc.has").forEach(el=>el.addEventListener("click",()=>{
+    diaryOpenDate=(diaryOpenDate===el.dataset.ds)?null:el.dataset.ds;
+    renderDiary();
+    const det=body.querySelector(".diary-detail");if(det&&det.scrollIntoView)det.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }));
+  /* 详情表单绑定 */
+  if(diaryOpenDate){
+    const d=diary.find(x=>x.date===diaryOpenDate);
+    if(d){
+      bindDiaryForm(body,d,"dd",()=>{renderDiary();renderDiaryPrev();});
+      const del=body.querySelector("#ddDel");
+      if(del)del.addEventListener("click",()=>{
+        const i=state.palette.diary.findIndex(x=>x.date===diaryOpenDate);
+        if(i>=0)state.palette.diary.splice(i,1);
+        diaryOpenDate=null;save();renderDiary();renderDiaryPrev();toast("已删除该日记 🗑");
+      });
+    }
+  }
+  /* 列表：点条目也展开该日详情；长按/右键菜单保留 */
   body.querySelectorAll(".diary-entry").forEach(el=>{
+    el.addEventListener("click",()=>{
+      diaryOpenDate=(diaryOpenDate===el.dataset.ds)?null:el.dataset.ds;
+      renderDiary();
+      const det=body.querySelector(".diary-detail");if(det&&det.scrollIntoView)det.scrollIntoView({behavior:"smooth",block:"nearest"});
+    });
     el.addEventListener("contextmenu",e=>{e.preventDefault();openDiaryMenu(+el.dataset.i,e.clientX,e.clientY);});
   });
 }
