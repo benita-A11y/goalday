@@ -1,6 +1,6 @@
 {
-  "name": "GoalDay 时间管理",
-  "short_name": "GoalDay",
+  "name": "计划册 时间管理",
+  "short_name": "计划册",
   "description": "莫兰迪奶油风周计划时间管理，拖拽排程，离线可用",
   "start_url": "./index.html",
   "scope": "./",
