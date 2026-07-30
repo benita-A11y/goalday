@@ -1,5 +1,5 @@
 /* GoalDay Service Worker - 离线可用 */
-const CACHE = "goalday-v17";
+const CACHE = "jihua-v1";
 const ASSETS = [
   "./",
   "./index.html",
