@@ -22,10 +22,7 @@
   --r-sm:12px;
   --tabbar-h:60px;
 }
-body[data-theme=princess]{--bar:#FFF5F7;--bar-2:#FFE3EC;--bg:#FFFFFF;--bg-soft:#FDF0F4;--line:#F2DDE4;--ink:#5A454C;--ink-soft:#A89199;--ink-3:#CDB8C0;--accent:#F48FB1;--accent-deep:#E06A96;}
-body[data-theme=flower]{--bar:#FFF8F0;--bar-2:#FFE0D6;--bg:#FFFFFF;--bg-soft:#FFF3EA;--line:#F1E2D6;--ink:#4A413A;--ink-soft:#9A9088;--ink-3:#C2B8AE;--accent:#E89B5A;--accent-deep:#D77F3C;}
-body[data-theme=morandi]{--bar:#F5F0EB;--bar-2:#E8E1D9;--bg:#FBF8F4;--bg-soft:#F1ECE5;--line:#E3DBD2;--ink:#4B443E;--ink-soft:#9C928A;--ink-3:#C2B8AE;--accent:#A99B95;--accent-deep:#8A7C76;}
-body[data-theme=macaron]{--bar:#FFFDF5;--bar-2:#EAF6F0;--bg:#FFFFFF;--bg-soft:#F2FAF6;--line:#E8EFE9;--ink:#4A4636;--ink-soft:#9A9682;--ink-3:#C6C2AE;--accent:#6FC2A8;--accent-deep:#4FA98C;}
+/* 旧版 4 套主题（公主/花束/莫兰迪/马卡龙）已下線，由「红橙黄绿青蓝紫」7 色系动态换肤（见 app.js applyScheme 注入的 body[data-scheme=...]）取代 */
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;}
@@ -1083,3 +1080,26 @@ body{min-height:100vh;min-height:100dvh;transition:background-color .5s ease;}
 /* 全局联动补充：选中/高亮统一用主题色，0.5s 平滑过渡 */
 .sub-tabs button.active{color:var(--accent-deep,var(--ink));}
 #tabbar,.page-head,.panel,.hcard,.tcard,.day-cell{transition:background-color .5s,border-color .5s;}
+
+/* ═══ 配色模块改版：7 色系 chips + 方案卡 + 灵感补给一键应用 ═══ */
+.theme-list.sys-chips{flex-direction:row;flex-wrap:wrap;gap:8px;}
+.theme-list.sys-chips .theme-item{flex:0 0 auto;align-items:center;gap:7px;padding:8px 11px;background:var(--bg);border:1px solid var(--line);border-radius:999px;}
+.theme-list.sys-chips .theme-item .tdot{width:18px;height:18px;border-radius:50%;}
+.theme-list.sys-chips .theme-item .tname{font-size:13px;font-weight:600;flex:none;}
+.theme-list.sys-chips .theme-item.sel{border-color:var(--ink);background:var(--bg-soft);box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.sys-schemes{margin-top:12px;}
+.sys-head{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;}
+.sys-list{display:flex;flex-direction:column;gap:9px;}
+.sys-scheme{display:flex;align-items:center;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px 12px;transition:border-color .2s,box-shadow .2s;}
+.sys-scheme.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg));}
+.sys-scheme .sys-sw{display:flex;border-radius:9px;overflow:hidden;height:38px;width:118px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);}
+.sys-scheme .sys-sw span{flex:1;}
+.sys-scheme .sys-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.sys-scheme .sys-name{font-size:13.5px;font-weight:600;color:var(--ink);}
+.sys-scheme .sys-badge{font-size:11px;color:var(--accent-deep,var(--ink));font-weight:600;}
+.sys-scheme .sys-apply{border:0;border-radius:999px;padding:9px 14px;font-size:12.5px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;flex:none;transition:transform .12s,filter .12s;}
+.sys-scheme .sys-apply:active{transform:scale(.96);filter:brightness(.96);}
+/* 灵感补给 · 一键应用按钮 */
+.ptt-sub{font-size:11.5px;color:var(--ink-soft);font-weight:400;margin-left:6px;}
+.inspire-stream .icard .ins-apply{margin-top:2px;width:100%;border:0;border-radius:999px;padding:9px 0;font-size:12.5px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;transition:transform .12s,filter .12s;}
+.inspire-stream .icard .ins-apply:active{transform:scale(.97);filter:brightness(.96);}
