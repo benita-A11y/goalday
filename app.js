@@ -171,7 +171,7 @@ function renderTab(tab){
   else if(tab==="review")renderReview();
   else if(tab==="settings")renderSettings();
 }
-function renderAll(){renderTab(state.activeTab);save();}
+function renderAll(){renderTab(state.activeTab);save();if(dayDetailOpen){try{renderDayDetail();}catch(e){}}}
 
 /* ═══════════ Tab1 待办 · 我的空间（灵感→待分类→周计划→我的清单→回收站） ═══════════ */
 let openListId=null;
@@ -684,6 +684,8 @@ function renderWeek(){
     const items=dayItems(ds);
     items.forEach(it=>chips.appendChild(it.type==="ics"?icsChip(it.data):weekChip(it.data)));
     cell.appendChild(chips);grid.appendChild(cell);
+    const dh=cell.querySelector(".day-head");
+    if(dh){dh.title="双击查看当日全部任务";dh.addEventListener("dblclick",e=>{e.preventDefault();openDayDetail(i);});}
   });
   renderPool();
 }
@@ -814,6 +816,93 @@ $("#weekRangeBtn").addEventListener("click",openCalPop);
 $("#calPrevM").addEventListener("click",()=>{calOff--;renderCalPop();});
 $("#calNextM").addEventListener("click",()=>{calOff++;renderCalPop();});
 $("#calPop").addEventListener("click",e=>{if(e.target.id==="calPop")closeCalPop();});
+
+/* ───────── 周计划 · 单日任务详情（双击日期数字打开） ───────── */
+let dayDetailOpen=false, dayDetailIdx=0;
+function openDayDetail(idx){
+  dayDetailIdx=idx;dayDetailOpen=true;
+  renderDayDetail();
+  const mask=$("#dayDetailMask"),sheet=$("#dayDetailSheet");
+  mask.hidden=false;void mask.offsetWidth;          /* 强制 reflow 以触发滑入动画 */
+  mask.classList.add("open");sheet.classList.add("open");
+  document.body.classList.add("no-scroll");
+}
+function closeDayDetail(){
+  dayDetailOpen=false;
+  const mask=$("#dayDetailMask"),sheet=$("#dayDetailSheet");
+  mask.classList.remove("open");sheet.classList.remove("open");
+  document.body.classList.remove("no-scroll");
+  setTimeout(()=>{if(!dayDetailOpen)mask.hidden=true;},340);
+}
+function renderDayDetail(){
+  const dates=weekDates(state.weekOffset);
+  const i=dayDetailIdx,d=dates[i],ds=fmtDate(d);
+  $("#ddsDate").textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${DAY_NAMES[i]}`;
+  const items=dayItems(ds);
+  const evs=items.filter(x=>x.type==="ics").map(x=>x.data);
+  const tasks=items.filter(x=>x.type==="task").map(x=>x.data);
+  const doneN=tasks.filter(t=>t.done||t.abandoned).length;
+  $("#ddsStat").textContent=`今日任务 · 共 ${tasks.length} 项`+(tasks.length?`（已完成 ${doneN}）`:"");
+  const list=$("#ddsList"),empty=$("#ddsEmpty");
+  if(tasks.length===0&&evs.length===0){list.hidden=true;empty.hidden=false;}
+  else{
+    list.hidden=false;empty.hidden=true;list.innerHTML="";
+    evs.sort((a,b)=>String(a.time||"99").localeCompare(String(b.time||"99")));
+    tasks.sort((a,b)=>((a.done||a.abandoned)-(b.done||b.abandoned))||String(a.time||"99").localeCompare(String(b.time||"99")));
+    evs.forEach(e=>list.appendChild(ddEventRow(e)));
+    tasks.forEach(t=>list.appendChild(ddTaskRow(t)));
+  }
+  renderDayDetailJump(dates,i);
+}
+function ddEventRow(e){
+  const row=document.createElement("div");row.className="dd-row ev";
+  const ic=document.createElement("div");ic.className="dd-ico";ic.textContent="📅";
+  const main=document.createElement("div");main.className="dd-main";
+  const tt=document.createElement("div");tt.className="dd-title";tt.textContent=e.title;main.appendChild(tt);
+  const meta=document.createElement("div");meta.className="dd-meta";if(e.time)meta.textContent="⏰ "+e.time;
+  row.appendChild(ic);row.appendChild(main);if(meta.textContent)row.appendChild(meta);
+  return row;
+}
+function ddTaskRow(t){
+  const row=document.createElement("div");
+  row.className="dd-row"+(t.done?" done":"")+(t.abandoned?" abandon":"");
+  const st=document.createElement("button");st.className="dd-st"+(t.done?" on":(t.abandoned?" x":""));
+  st.setAttribute("aria-label",t.abandoned?"已放弃":(t.done?"已完成":"未完成"));
+  st.addEventListener("click",e=>{e.stopPropagation();toggleDone(t,!t.done);});
+  const main=document.createElement("div");main.className="dd-main";
+  const tt=document.createElement("div");tt.className="dd-title";tt.textContent=t.title;main.appendChild(tt);
+  if(t.notes){const nn=document.createElement("div");nn.className="dd-note";nn.textContent="✎ "+t.notes;main.appendChild(nn);}
+  main.addEventListener("click",()=>openTaskModal(t.id));
+  const meta=document.createElement("div");meta.className="dd-meta";
+  if(t.time&&!t.allDay){const tm=document.createElement("span");tm.textContent="⏰ "+t.time;meta.appendChild(tm);}
+  if(t.done){const tg=document.createElement("span");tg.className="dd-done-tag";tg.textContent="✅ 已完成";meta.appendChild(tg);}
+  else if(t.abandoned){const tg=document.createElement("span");tg.className="dd-drop-tag";tg.textContent="已放弃";meta.appendChild(tg);}
+  const del=document.createElement("button");del.className="dd-del";del.textContent="🗑️";del.title="删除任务";
+  del.addEventListener("click",e=>{e.stopPropagation();if(confirm("确定删除这个任务吗？")){state.tasks=state.tasks.filter(k=>k.id!==t.id);renderAll();}});
+  row.appendChild(st);row.appendChild(main);if(meta.childNodes.length)row.appendChild(meta);row.appendChild(del);
+  return row;
+}
+function renderDayDetailJump(dates,i){
+  const bar=$("#ddsJump");bar.innerHTML="";
+  dates.forEach((d,j)=>{
+    const b=document.createElement("button");
+    b.className="dd-jump"+(j===i?" on":"");
+    b.innerHTML=`<span class="dj-n">${d.getDate()}</span><span class="dj-w">${DAY_NAMES[j].slice(1)}</span>`;
+    b.addEventListener("click",()=>{
+      if(j===i)return;
+      const dir=j>i?"next":"prev";
+      const sl=$("#ddsList");
+      sl.classList.remove("slide-next","slide-prev");void sl.offsetWidth;
+      sl.classList.add(dir==="next"?"slide-next":"slide-prev");
+      dayDetailIdx=j;renderDayDetail();
+    });
+    bar.appendChild(b);
+  });
+}
+$("#ddsBack").addEventListener("click",closeDayDetail);
+$("#dayDetailMask").addEventListener("click",e=>{if(e.target.id==="dayDetailMask")closeDayDetail();});
+$("#ddsAdd").addEventListener("click",()=>{const ds=fmtDate(weekDates(state.weekOffset)[dayDetailIdx]);openTaskModal(null,{due:ds});});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dayDetailOpen)closeDayDetail();});
 
 /* ── 日程（24 小时时间轴）视图 v16 ──
    与周计划任务完全同源（state.tasks）：改一处两边同步。
