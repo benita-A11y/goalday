@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#F5F0EB">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>灵感专区 · GoalDay</title>
+  <link rel="stylesheet" href="inspire.css">
+</head>
+<body>
+  <!-- ══ 顶部 ══ -->
+  <header class="ins-head">
+    <div class="ins-head-top">
+      <h1>💡 灵感专区</h1>
+      <button class="ins-icon" id="insMore" aria-label="更多">⋯</button>
+    </div>
+    <div class="ins-search">
+      <span class="ins-search-ico">🔍</span>
+      <input id="insSearch" type="search" placeholder="搜索标题、正文、标签…" autocomplete="off">
+      <button class="ins-search-clear" id="insSearchClear" hidden>✕</button>
+    </div>
+    <div class="ins-tabs" id="insTabs">
+      <button class="ins-tab active" data-cat="all">全部</button>
+      <button class="ins-tab" data-cat="outfit">👗 穿搭灵感</button>
+      <button class="ins-tab" data-cat="makeup">💄 妆容灵感</button>
+      <button class="ins-tab ins-tab-filter" id="insTagFilterBtn">🏷 标签</button>
+    </div>
+  </header>
+
+  <!-- ══ 瀑布流 ══ -->
+  <main class="ins-main" id="insMain">
+    <div class="ins-waterfall" id="insWaterfall"></div>
+    <div class="ins-empty" id="insEmpty" hidden>
+      <div class="ins-empty-emoji">✨</div>
+      <p>这里存放你的穿搭、妆容灵感，<br>点击右下角加号开始记录✨</p>
+    </div>
+    <div class="ins-noresult" id="insNoresult" hidden>
+      <div class="ins-empty-emoji">🔍</div>
+      <p>没有找到匹配的笔记，<br>换个关键词或标签试试～</p>
+    </div>
+  </main>
+
+  <!-- ══ 悬浮加号 ══ -->
+  <button class="ins-fab" id="insFab" aria-label="新建笔记">＋</button>
+
+  <!-- ══ 新建 / 编辑笔记 弹窗 ══ -->
+  <div class="ins-overlay" id="editOverlay" hidden>
+    <div class="ins-sheet ins-sheet-full">
+      <div class="ins-sheet-bar">
+        <button class="ins-btn-text" id="editCancel">取消</button>
+        <b id="editTitle">新建灵感笔记</b>
+        <button class="ins-btn-primary" id="editSave">完成</button>
+      </div>
+      <div class="ins-sheet-body">
+        <!-- 图片上传 -->
+        <div class="ins-upload">
+          <div class="ins-thumbs" id="insThumbs"></div>
+          <button class="ins-addimg" id="insAddImg" type="button">
+            <span>🖼</span><small>添加图片<br>（最多 9 张）</small>
+          </button>
+          <input type="file" id="insFile" accept="image/*" multiple hidden>
+        </div>
+        <!-- 标题 -->
+        <input class="ins-input" id="insNoteTitle" type="text" placeholder="笔记标题（选填）" maxlength="60">
+        <!-- 正文 -->
+        <textarea class="ins-textarea" id="insNoteBody" placeholder="记录搭配思路、妆容心得、色号、场景、季节、购买链接…" rows="5"></textarea>
+        <!-- 分类 -->
+        <div class="ins-field">
+          <label class="ins-field-label">归属分类 <span class="ins-req">必选</span></label>
+          <div class="ins-catpick" id="insCatPick">
+            <button type="button" class="ins-catopt" data-cat="outfit">👗 穿搭灵感</button>
+            <button type="button" class="ins-catopt" data-cat="makeup">💄 妆容灵感</button>
+          </div>
+        </div>
+        <!-- 标签 -->
+        <div class="ins-field">
+          <label class="ins-field-label">自定义标签</label>
+          <div class="ins-tags" id="insTags"></div>
+          <div class="ins-tagadd">
+            <input class="ins-input ins-input-sm" id="insTagInput" type="text" placeholder="如：通勤 / 约会 / 黄皮" maxlength="12">
+            <button class="ins-btn-soft" id="insTagAdd" type="button">添加</button>
+          </div>
+        </div>
+        <div class="ins-draft-hint" id="insDraftHint" hidden>📝 已自动保存草稿，关闭后可在下次继续</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 笔记详情 ══ -->
+  <div class="ins-overlay" id="detailOverlay" hidden>
+    <div class="ins-detail">
+      <div class="ins-detail-bar">
+        <button class="ins-icon" id="detailClose" aria-label="关闭">✕</button>
+        <button class="ins-icon" id="detailMore" aria-label="更多">⋯</button>
+      </div>
+      <div class="ins-detail-body" id="detailBody"></div>
+    </div>
+  </div>
+
+  <!-- ══ 更多菜单（顶部） ══ -->
+  <div class="ins-sheet" id="moreSheet" hidden>
+    <div class="ins-sheet-bar"><b>灵感专区</b><button class="ins-icon" data-close="moreSheet">✕</button></div>
+    <div class="ins-sheet-body ins-menu">
+      <button class="ins-menu-item" id="moreRecycle">🗑️ 回收站<span class="ins-menu-sub">30 天内可恢复</span></button>
+      <button class="ins-menu-item" id="moreBackup">💾 备份与恢复</button>
+      <button class="ins-menu-item" id="moreAbout">ℹ️ 关于灵感专区</button>
+    </div>
+  </div>
+
+  <!-- ══ 标签筛选 ══ -->
+  <div class="ins-sheet" id="tagSheet" hidden>
+    <div class="ins-sheet-bar"><b>按标签筛选</b><button class="ins-icon" data-close="tagSheet">✕</button></div>
+    <div class="ins-sheet-body">
+      <div class="ins-tagfilter" id="insTagFilterList"></div>
+      <div class="ins-sheet-actions">
+        <button class="ins-btn-soft" id="tagClear">清空</button>
+        <button class="ins-btn-primary" id="tagApply">应用筛选</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 回收站 ══ -->
+  <div class="ins-sheet" id="binSheet" hidden>
+    <div class="ins-sheet-bar"><b>🗑️ 回收站</b><button class="ins-icon" data-close="binSheet">✕</button></div>
+    <div class="ins-sheet-body">
+      <p class="ins-bin-tip">删除的笔记会保留 30 天，期间可恢复；超期将自动永久清除。</p>
+      <div class="ins-bin-list" id="insBinList"></div>
+    </div>
+  </div>
+
+  <!-- ══ 备份与恢复 ══ -->
+  <div class="ins-sheet" id="backupSheet" hidden>
+    <div class="ins-sheet-bar"><b>💾 备份与恢复</b><button class="ins-icon" data-close="backupSheet">✕</button></div>
+    <div class="ins-sheet-body ins-backup">
+      <p class="ins-backup-tip">备份包含所有图文笔记与图片（本地存储）。导入后可完整恢复。</p>
+      <button class="ins-backup-btn" id="backupExport">⬇️ 导出备份文件</button>
+      <button class="ins-backup-btn" id="backupImport">⬆️ 从备份导入</button>
+      <input type="file" id="backupFile" accept="application/json,.json" hidden>
+    </div>
+  </div>
+
+  <!-- ══ 删除二次确认 ══ -->
+  <div class="ins-overlay ins-overlay-center" id="confirmOverlay" hidden>
+    <div class="ins-confirm">
+      <div class="ins-confirm-emoji">🗑️</div>
+      <p class="ins-confirm-text" id="confirmText">确定删除这篇笔记吗？</p>
+      <p class="ins-confirm-sub">删除后可在回收站 30 天内恢复。</p>
+      <div class="ins-confirm-actions">
+        <button class="ins-btn-soft" id="confirmCancel">取消</button>
+        <button class="ins-btn-danger" id="confirmOk">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 图片放大 ══ -->
+  <div class="ins-lightbox" id="lightbox" hidden>
+    <button class="ins-lightbox-close" id="lightboxClose" aria-label="关闭">✕</button>
+    <img id="lightboxImg" alt="预览">
+  </div>
+
+  <!-- ══ Toast ══ -->
+  <div class="ins-toast" id="insToast" hidden></div>
+
+  <script src="inspire-db.js"></script>
+  <script src="inspire.js"></script>
+</body>
+</html>
