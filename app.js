@@ -45,8 +45,8 @@ function defaultState(){
     reviewDim:"week",
     dayDate:todayStr(), monthOffset:0,
     habits:[
-      {id:uid(),name:"早起喝水",emoji:"💧",color:"#88d8db",checks:{},createdAt:Date.now()},
-      {id:uid(),name:"阅读30分钟",emoji:"📖",color:"#b8aeeb",checks:{},createdAt:Date.now()},
+      {id:uid(),name:"早起喝水",emoji:"💧",color:"#88d8db",listId:l3,hidden:false,archived:false,checks:{},createdAt:Date.now()},
+      {id:uid(),name:"阅读30分钟",emoji:"📖",color:"#b8aeeb",listId:l4,hidden:false,archived:false,checks:{},createdAt:Date.now()},
     ],
     pomo:{focusMin:25,breakMin:5,noise:false,records:[]},
     settings:{theme:"morandi",accent:null},
@@ -92,6 +92,12 @@ function load(){
       if(!st.inspirations)st.inspirations=[];
       if(!st.annual)st.annual={};
       if(st.settings&&st.settings.accent===undefined)st.settings.accent=null;
+      /* v17：习惯字段归一化（分类/隐藏/归档） */
+      (st.habits||[]).forEach(h=>{
+        if(h.listId===undefined)h.listId=null;
+        if(h.hidden===undefined)h.hidden=false;
+        if(h.archived===undefined)h.archived=false;
+      });
       /* v11：灵感数据归一化（旧 {text,img,color} → 新 {status} 模型） */
       st.inspirations=(st.inspirations||[]).map(n=>({
         id:n.id||uid(),text:n.text||"",img:n.img||null,
@@ -241,6 +247,8 @@ function delList(id){
   if(confirm(`删除清单「${l.name}」？其中任务将移入收集箱。`)){
     state.lists=state.lists.filter(x=>x.id!==id);
     state.tasks.forEach(t=>{if(t.listId===id)t.listId=null;});
+    state.habits.forEach(h=>{if(h.listId===id)h.listId=null;});   /* 分类删除 → 该分类习惯变未分类 */
+    if(habitCat===id)habitCat="all";
     if(state.todoSel===id)state.todoSel="inbox";
     if(state.poolList===id)state.poolList="all";
     if(openListId===id)openListId=null;
@@ -1382,6 +1390,82 @@ function notify(title,body){
 
 /* ═══════════ Tab4 打卡 ═══════════ */
 let habitTab="main";
+let habitCat="all";          /* 当前分类筛选：all / 清单id / none(未分类) */
+let habitEditMode=false;     /* 整理顺序编辑模式 */
+/* ⋯ 菜单：整理顺序 / 已归档 */
+(function initHabitMenu(){
+  const btn=$("#habitMenuBtn");if(!btn)return;
+  btn.addEventListener("click",e=>{
+    e.stopPropagation();
+    closeTcMenu();
+    const m=document.createElement("div");m.className="tc-menu show";m.id="tcMenu";
+    const arch=state.habits.filter(h=>h.archived).length;
+    m.innerHTML=`<button data-act="sort">⠿ 整理顺序</button>
+      <button data-act="arch">📦 已归档（${arch}）</button>`;
+    document.body.appendChild(m);
+    const r=btn.getBoundingClientRect();
+    m.style.left=Math.min(r.left,window.innerWidth-(m.offsetWidth||170)-8)+"px";
+    m.style.top=(r.bottom+6)+"px";
+    m.querySelector('[data-act=sort]').onclick=()=>{habitEditMode=true;renderHabit();closeTcMenu();};
+    m.querySelector('[data-act=arch]').onclick=()=>{openArchived();closeTcMenu();};
+    setTimeout(()=>document.addEventListener("click",function once(ev){if(ev.target.closest&&ev.target.closest(".tc-menu"))return;closeTcMenu();document.removeEventListener("click",once);}),0);
+  });
+  const done=$("#habitEditDone");
+  if(done)done.addEventListener("click",()=>{habitEditMode=false;renderHabit();save();toast("顺序已保存 ✅");});
+})();
+/* 已归档习惯浮层 */
+function openArchived(){
+  const list=state.habits.filter(h=>h.archived);
+  const ov=document.createElement("div");ov.className="mask show";
+  ov.innerHTML=`<div class="modal show" style="max-width:420px"><h3>📦 已归档习惯</h3>
+    <div class="arch-list">${list.length?list.map(h=>`
+      <div class="arch-row" data-id="${h.id}">
+        <span class="arch-ico" style="background:${h.color}33">${h.emoji}</span>
+        <span class="arch-name">${esc(h.name)}</span>
+        <span class="arch-cnt">${Object.keys(h.checks).length} 次</span>
+        <button class="arch-restore">恢复</button>
+        <button class="arch-del">🗑</button>
+      </div>`).join(""):`<div class="dp-empty">还没有归档的习惯 📦</div>`}</div>
+    <div class="modal-btns"><span class="flex1"></span><button id="archClose" class="modal-cancel">关闭</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelectorAll(".arch-restore").forEach(b=>b.onclick=()=>{
+    const h=state.habits.find(x=>x.id===b.closest(".arch-row").dataset.id);
+    if(h){h.archived=false;save();renderHabit();ov.remove();toast("已恢复「"+h.name+"」🌱");}
+  });
+  ov.querySelectorAll(".arch-del").forEach(b=>b.onclick=()=>{
+    const id=b.closest(".arch-row").dataset.id;
+    const h=state.habits.find(x=>x.id===id);if(!h)return;
+    if(confirm(`彻底删除「${h.name}」及其全部打卡记录？`)){state.habits=state.habits.filter(x=>x.id!==id);save();ov.remove();openArchived();}
+  });
+  ov.querySelector("#archClose").onclick=()=>ov.remove();
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+  applyEmoji();
+}
+/* 分类筛选后的可见习惯（未归档；普通模式还要求未隐藏） */
+function habitsVisible(){
+  return state.habits.filter(h=>{
+    if(h.archived)return false;
+    if(!habitEditMode&&h.hidden)return false;
+    if(habitCat==="all")return true;
+    if(habitCat==="none")return !h.listId||!listOf(h.listId);
+    return h.listId===habitCat;
+  });
+}
+/* 分类标签栏（与「我的清单」分类同源联动） */
+function renderHabitCats(){
+  const box=$("#habitCats");if(!box)return;
+  const alive=state.habits.filter(h=>!h.archived);
+  const noneCnt=alive.filter(h=>!h.listId||!listOf(h.listId)).length;
+  if(habitCat!=="all"&&habitCat!=="none"&&!listOf(habitCat))habitCat="all";
+  let html=`<button class="hcat${habitCat==="all"?" on":""}" data-cat="all">📋 全部（${alive.length}）</button>`;
+  state.lists.forEach(l=>{
+    const n=alive.filter(h=>h.listId===l.id).length;
+    html+=`<button class="hcat${habitCat===l.id?" on":""}" data-cat="${l.id}" style="--cat:${l.color}">${l.emoji} ${esc(l.name)}（${n}）</button>`;
+  });
+  if(noneCnt)html+=`<button class="hcat${habitCat==="none"?" on":""}" data-cat="none">🗂️ 未分类（${noneCnt}）</button>`;
+  box.innerHTML=html;
+  box.querySelectorAll(".hcat").forEach(b=>b.addEventListener("click",()=>{habitCat=b.dataset.cat;renderHabit();}));
+}
 $("#hbTab1").addEventListener("click",()=>{habitTab="main";renderHabit();});
 $("#hbTab2").addEventListener("click",()=>{habitTab="history";renderHabit();});
 function streakOf(h){
@@ -1395,7 +1479,8 @@ function renderHabit(){
   $("#hbTab2").classList.toggle("active",habitTab==="history");
   $("#habitMain").hidden=habitTab!=="main";
   $("#habitHistory").hidden=habitTab!=="history";
-  if(habitTab==="main"){renderHabitHeatmap();renderHabitList();}
+  const eb=$("#habitEditBar");if(eb)eb.hidden=!(habitTab==="main"&&habitEditMode);
+  if(habitTab==="main"){renderHabitCats();renderHabitHeatmap();renderHabitList();}
   else renderHabitHistory();
 }
 function monthDays(offset){
@@ -1408,10 +1493,11 @@ function renderHabitHeatmap(){
   const box=$("#habitHeatmap");box.innerHTML="";
   DAY_NAMES.forEach(n=>{const h=document.createElement("div");h.className="hm-head";h.textContent=n.slice(1);box.appendChild(h);});
   const {base,cells}=monthDays(0);
-  const total=state.habits.length||1;
+  const pool=habitsVisible();          /* 热力图跟随分类筛选 */
+  const total=pool.length||1;
   cells.forEach(d=>{
     const ds=fmtDate(d);
-    const checked=state.habits.filter(h=>h.checks[ds]);
+    const checked=pool.filter(h=>h.checks[ds]);
     const ratio=checked.length/total;
     let lvl="";
     if(checked.length>0)lvl=ratio>=.67?" l3":ratio>=.34?" l2":" l1";
@@ -1432,47 +1518,137 @@ function renderHabitHeatmap(){
 }
 function renderHabitList(){
   const box=$("#habitList");box.innerHTML="";
-  state.habits.forEach(h=>{
+  const pool=habitsVisible();
+  if(!pool.length){
+    const tip=document.createElement("div");tip.className="hb-empty";
+    tip.textContent="💡 还没有习惯哦，去新增一个吧";
+    box.appendChild(tip);
+  }
+  pool.forEach(h=>{
     const total=Object.keys(h.checks).length;
     const streak=streakOf(h);
     const now=new Date();
     const daysSoFar=now.getDate();
     const monthCnt=Object.keys(h.checks).filter(ds=>ds.startsWith(fmtDate(now).slice(0,7))).length;
     const pct=Math.min(100,Math.round(monthCnt/daysSoFar*100));
-    const card=document.createElement("div");card.className="hcard";
-    card.innerHTML=`<div class="hico" style="background:${h.color}33">${h.emoji}</div>
-      <div class="hbody"><div class="hname">${esc(h.name)}</div>
+    const l=h.listId?listOf(h.listId):null;
+    const card=document.createElement("div");card.className="hcard"+(h.hidden?" hh":"");
+    card.dataset.id=h.id;
+    card.innerHTML=`${habitEditMode?`<button class="hgrip" title="拖动排序">⠿</button>`:""}
+      <div class="hico" style="background:${h.color}33">${h.emoji}</div>
+      <div class="hbody"><div class="hname">${esc(h.name)}${l?`<span class="hcat-tag" style="background:${l.color}22;color:${l.color}">${l.emoji}${esc(l.name)}</span>`:""}</div>
       <div class="hmeta">累计 ${total} 次 · 连续 ${streak} 天 🔥 · 本月完成率 ${pct}%</div>
       <div class="hbar"><i style="width:${pct}%;background:${h.color}"></i></div></div>`;
-    const chk=document.createElement("button");
-    const on=!!h.checks[todayStr()];
-    chk.className="hchk"+(on?" on":"");
-    chk.setAttribute("aria-label",on?"已打卡":"打卡");
-    chk.addEventListener("click",e=>{
-      e.stopPropagation();   /* 勾选按钮只负责打卡，不触发卡片编辑 */
-      if(h.checks[todayStr()])delete h.checks[todayStr()];
-      else{h.checks[todayStr()]=1;toast("打卡成功 ✅ 连续 "+(streakOf(h))+" 天！");if(navigator.vibrate)navigator.vibrate(15);}
-      renderHabit();save();
-    });
-    card.appendChild(chk);
-    card.style.cursor="pointer";
-    card.addEventListener("contextmenu",e=>{e.preventDefault();delHabit(h.id);});
-    let tm,lp=false;
-    card.addEventListener("touchstart",e=>{if(e.target===chk)return;lp=false;tm=setTimeout(()=>{lp=true;delHabit(h.id);},650);},{passive:true});
-    card.addEventListener("touchend",()=>clearTimeout(tm));
-    card.addEventListener("touchmove",()=>clearTimeout(tm));
-    /* 整块卡片（除右侧勾选按钮）点击 → 打开编辑弹窗；勾选按钮已 stopPropagation */
-    card.addEventListener("click",e=>{
-      if(e.target===chk)return;
-      if(lp){lp=false;return;}          /* 长按删除后抑制误触编辑 */
-      openHabitModal(h);
-    });
+    if(habitEditMode){
+      /* 编辑模式：隐藏/归档按钮 + 手柄拖拽 */
+      const eye=document.createElement("button");
+      eye.className="he-act";eye.textContent=h.hidden?"🙈":"👁️";eye.title=h.hidden?"点击显示":"点击隐藏";
+      eye.addEventListener("click",e=>{e.stopPropagation();h.hidden=!h.hidden;save();renderHabit();toast(h.hidden?"已隐藏（数据保留）🙈":"已恢复显示 👁️");});
+      const arch=document.createElement("button");
+      arch.className="he-act";arch.textContent="📦";arch.title="归档";
+      arch.addEventListener("click",e=>{e.stopPropagation();h.archived=true;save();renderHabit();toast("已归档「"+h.name+"」📦 可在 ⋯ 菜单找回");});
+      card.appendChild(eye);card.appendChild(arch);
+      enableHabitDrag(card,h,card.querySelector(".hgrip"));
+    }else{
+      const chk=document.createElement("button");
+      const on=!!h.checks[todayStr()];
+      chk.className="hchk"+(on?" on":"");
+      chk.setAttribute("aria-label",on?"已打卡":"打卡");
+      chk.addEventListener("click",e=>{
+        e.stopPropagation();   /* 勾选按钮只负责打卡，不触发卡片编辑 */
+        if(h.checks[todayStr()])delete h.checks[todayStr()];
+        else{h.checks[todayStr()]=1;toast("打卡成功 ✅ 连续 "+(streakOf(h))+" 天！");if(navigator.vibrate)navigator.vibrate(15);}
+        renderHabit();save();
+      });
+      card.appendChild(chk);
+      card.style.cursor="pointer";
+      card.addEventListener("contextmenu",e=>{e.preventDefault();delHabit(h.id);});
+      /* 整块卡片（除右侧勾选按钮）点击 → 打开编辑弹窗；长按 → 拖拽排序 */
+      card.addEventListener("click",e=>{
+        if(e.target===chk)return;
+        if(card._dragged){card._dragged=false;return;}   /* 拖拽后抑制误触编辑 */
+        openHabitModal(h);
+      });
+      enableHabitDrag(card,h,null);   /* 长按 350ms 进入拖拽 */
+    }
     box.appendChild(card);
   });
-  const add=document.createElement("button");
-  add.className="drawer-add";add.textContent="➕ 新增习惯";
-  add.addEventListener("click",()=>openHabitModal());
-  box.appendChild(add);
+  if(!habitEditMode){
+    const add=document.createElement("button");
+    add.className="drawer-add";add.textContent="➕ 新增习惯";
+    add.addEventListener("click",()=>openHabitModal());
+    box.appendChild(add);
+  }
+}
+/* ── 习惯拖拽排序（长按浮起 / 编辑模式手柄直接拖） ── */
+function enableHabitDrag(card,h,handle){
+  const src=handle||card;
+  src.addEventListener("pointerdown",e=>{
+    if(!handle&&e.target.closest(".hchk,.he-act"))return;
+    if(e.button!==undefined&&e.button!==0)return;
+    const sx=e.clientX,sy=e.clientY;
+    let started=false,cancelled=false;
+    const begin=()=>{if(cancelled||started)return;started=true;beginHabitDrag(e.pointerId,card,h,sy);};
+    const delay=handle?0:350;                      /* 手柄：立即拖；卡片：长按 350ms */
+    const tm=setTimeout(begin,delay);
+    const premove=ev=>{if(!started&&(Math.abs(ev.clientX-sx)>9||Math.abs(ev.clientY-sy)>9)){cancelled=true;clearTimeout(tm);cleanup();}};
+    const preup=()=>{cancelled=true;clearTimeout(tm);cleanup();};
+    const cleanup=()=>{document.removeEventListener("pointermove",premove);document.removeEventListener("pointerup",preup);document.removeEventListener("pointercancel",preup);};
+    document.addEventListener("pointermove",premove);
+    document.addEventListener("pointerup",preup);
+    document.addEventListener("pointercancel",preup);
+    if(handle)e.preventDefault();
+  });
+}
+function beginHabitDrag(pid,card,h,startY){
+  const box=$("#habitList");if(!box)return;
+  card.classList.add("dragging");card._dragged=true;
+  if(navigator.vibrate)navigator.vibrate(12);
+  const stopScroll=ev=>ev.preventDefault();
+  document.addEventListener("touchmove",stopScroll,{passive:false});
+  const line=document.createElement("div");line.className="hdrop-line";
+  const others=()=>[...box.querySelectorAll(".hcard")].filter(c=>c!==card);
+  let insertBeforeEl=null;
+  const move=ev=>{
+    if(pid!=null&&ev.pointerId!==pid)return;
+    ev.preventDefault();
+    card.style.transform=`translateY(${ev.clientY-startY}px) scale(1.03)`;
+    const y=ev.clientY;
+    insertBeforeEl=null;
+    for(const c of others()){
+      const r=c.getBoundingClientRect();
+      if(y<r.top+r.height/2){insertBeforeEl=c;break;}
+    }
+    if(insertBeforeEl)box.insertBefore(line,insertBeforeEl);
+    else{const cs=others();const last=cs[cs.length-1];if(last)last.after(line);else box.prepend(line);}
+  };
+  const up=ev=>{
+    document.removeEventListener("pointermove",move);
+    document.removeEventListener("pointerup",up);
+    document.removeEventListener("pointercancel",up);
+    document.removeEventListener("touchmove",stopScroll);
+    card.classList.remove("dragging");card.style.transform="";
+    if(line.parentNode)line.remove();
+    /* 重排：从数组移除，再插到目标习惯之前（或可见序列末尾） */
+    const beforeId=insertBeforeEl?insertBeforeEl.dataset.id:null;
+    if(beforeId!==h.id){
+      const arr=state.habits;
+      const from=arr.findIndex(x=>x.id===h.id);
+      if(from>-1){
+        arr.splice(from,1);
+        let to=beforeId?arr.findIndex(x=>x.id===beforeId):-1;
+        if(beforeId&&to>-1)arr.splice(to,0,h);
+        else arr.push(h);
+      }
+      save();                                     /* 拖动结束自动保存 */
+      if(navigator.vibrate)navigator.vibrate(8);
+    }
+    renderHabit();
+    setTimeout(()=>{card._dragged=false;},50);
+  };
+  document.addEventListener("pointermove",move);
+  document.addEventListener("pointerup",up);
+  document.addEventListener("pointercancel",up);
 }
 function delHabit(id){
   const h=state.habits.find(x=>x.id===id);if(!h)return;
@@ -1513,6 +1689,31 @@ function renderHabitHistory(){
 }
 let habitColor=PALETTE[3];
 let editingHabit=null;
+let habitCatSel=null;   /* 弹窗中选中的分类（null=未分类） */
+/* 弹窗分类选择：与「我的清单」同源；支持 + 新建分类（回写清单，双向联动） */
+function renderHmCats(){
+  const box=$("#hmCats");if(!box)return;
+  let html=`<button class="hmc${habitCatSel==null?" on":""}" data-lid="">🗂️ 未分类</button>`;
+  state.lists.forEach(l=>{
+    html+=`<button class="hmc${habitCatSel===l.id?" on":""}" data-lid="${l.id}" style="--cat:${l.color}">${l.emoji} ${esc(l.name)}</button>`;
+  });
+  html+=`<button class="hmc hmc-new" data-new="1">＋ 新建分类</button>`;
+  box.innerHTML=html;
+  box.querySelectorAll(".hmc").forEach(b=>b.addEventListener("click",()=>{
+    if(b.dataset.new){
+      const name=prompt("新分类名称：");
+      if(name&&name.trim()){
+        const nl={id:uid(),name:name.trim(),emoji:"✨",color:PALETTE[state.lists.length%PALETTE.length]};
+        state.lists.push(nl);habitCatSel=nl.id;
+        save();renderDrawer();               /* 同步到「我的清单」 */
+        renderHmCats();toast("分类已创建，清单页同步可见 ✨");
+      }
+      return;
+    }
+    habitCatSel=b.dataset.lid||null;
+    renderHmCats();
+  }));
+}
 function openHabitModal(habit){
   editingHabit=habit||null;
   const h3=$("#habitModal").querySelector("h3");
@@ -1520,14 +1721,17 @@ function openHabitModal(habit){
     $("#hmName").value=habit.name;
     $("#hmEmoji").value=habit.emoji||"";
     habitColor=habit.color||PALETTE[3];
+    habitCatSel=habit.listId||null;
     if(h3)h3.textContent="✏️ 编辑习惯";
     $("#hmSave").textContent="保存";
   }else{
     $("#hmName").value="";$("#hmEmoji").value="";
     habitColor=PALETTE[3];
+    habitCatSel=(habitCat!=="all"&&habitCat!=="none")?habitCat:null;  /* 分类视图下新建默认归入当前分类 */
     if(h3)h3.textContent="🌱 新增习惯";
     $("#hmSave").textContent="创建";
   }
+  renderHmCats();
   buildSwatches("#hmColors",c=>habitColor=c);
   showModal("habitModal");
 }
@@ -1536,10 +1740,10 @@ $("#hmSave").addEventListener("click",()=>{
   if(!name){toast("请填写习惯名称 ✏️");return;}
   const emoji=$("#hmEmoji").value.trim()||"🌱";
   if(editingHabit){
-    editingHabit.name=name;editingHabit.emoji=emoji;editingHabit.color=habitColor;
+    editingHabit.name=name;editingHabit.emoji=emoji;editingHabit.color=habitColor;editingHabit.listId=habitCatSel;
     closeModal();renderHabit();save();toast("习惯已更新 ✏️");
   }else{
-    state.habits.push({id:uid(),name,emoji,color:habitColor,checks:{},createdAt:Date.now()});
+    state.habits.push({id:uid(),name,emoji,color:habitColor,listId:habitCatSel,hidden:false,archived:false,checks:{},createdAt:Date.now()});
     closeModal();renderHabit();save();toast("习惯已创建 🌱");
   }
 });
@@ -1734,16 +1938,24 @@ function applyTheme(t){
   renderThemePreview(t);
   applyAccent();
 }
-/* 全局主色调（调色盘「我的收藏色」联动） */
+/* 全局主色调（调色盘联动）：自动生成 深色/浅色/强调 变体，全局替换
+   联动范围：顶部导航底色、底部Tab选中色、卡片底色、按钮主色、清单圆点、
+   打卡热力图渐变、周计划任务卡、复盘图表、灵感圆点、选中高亮态 */
 function applyAccent(){
   const root=document.body;
+  const vars=["--accent","--accent-deep","--accent-soft","--accent-bg"];
   if(state.settings.accent){
-    root.style.setProperty("--accent",state.settings.accent);
-    root.style.setProperty("--accent-deep",accentDeep(state.settings.accent));
+    const a=state.settings.accent;
+    const {h,s}=hexToHsl(a);
+    root.style.setProperty("--accent",a);
+    root.style.setProperty("--accent-deep",accentDeep(a));                       /* 深色变体：按钮按下/强调 */
+    root.style.setProperty("--accent-soft",hslToHex(h,Math.min(s,42),90));       /* 浅色变体：选中底/卡片柔和底 */
+    root.style.setProperty("--accent-bg",hslToHex(h,Math.min(s,30),96));         /* 极浅变体：页面点缀底色 */
   }else{
-    root.style.removeProperty("--accent");
-    root.style.removeProperty("--accent-deep");
+    vars.forEach(v=>root.style.removeProperty(v));
   }
+  /* 复盘图表用的是 canvas，重绘才生效 */
+  if(typeof renderReview==="function"&&state.activeTab==="review"){try{renderReview();}catch(e){}}
 }
 function accentDeep(hex){
   const c=String(hex).replace("#","");
