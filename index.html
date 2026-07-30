@@ -122,6 +122,25 @@
   </div>
 </div>
 
+<!-- 周计划 · 单日任务详情（双击日期数字打开） -->
+<div class="day-detail-mask" id="dayDetailMask" hidden>
+  <div class="day-detail-sheet" id="dayDetailSheet">
+    <div class="dds-head">
+      <button class="dds-back" id="ddsBack">‹ 返回周视图</button>
+      <div class="dds-date" id="ddsDate"></div>
+    </div>
+    <div class="dds-stat" id="ddsStat"></div>
+    <div class="dds-list" id="ddsList"></div>
+    <div class="dds-empty" id="ddsEmpty" hidden>
+      <div class="de-emoji">🌸</div>
+      <div class="de-title">今天还没有任务哦</div>
+      <div class="de-sub">去周计划右侧清单拖拽一个吧</div>
+    </div>
+    <div class="dds-jump" id="ddsJump"></div>
+    <button class="dds-add" id="ddsAdd">＋ 添加任务</button>
+  </div>
+</div>
+
 <!-- ═══════════ Tab2 打卡 ═══════════ -->
 <section class="page" id="page-habit">
   <header class="page-head center habit-head"><h1>✅ 打卡</h1><button class="icon-btn habit-more" id="habitMenuBtn" title="更多">⋯</button></header>
