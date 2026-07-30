@@ -603,24 +603,20 @@ function openMoodModal(){
 
 function renderInspireStream(){
   const box=$("#inspireStream");if(!box)return;
-  let list=[];
-  if(currentInspireTab==="hot")list=INSPIRE_PALETTES.filter(p=>/小红书|Color Hunt|2026 春夏/.test(p.src));
-  else if(currentInspireTab==="net")list=INSPIRE_PALETTES.filter(p=>/电影|自然/.test(p.src));
-  else if(currentInspireTab==="season")list=seasonCards();
-  if(!list.length)list=INSPIRE_PALETTES;
   box.innerHTML="";
-  list.forEach((p,idx)=>{
+  INSPIRE_HOT5.forEach((p,idx)=>{
     const faved=isFaved(p);
-    const card=document.createElement("div");card.className="icard"+(currentInspireTab==="season"?" season":"");
-    const badge=currentInspireTab==="season"?`<div class="season-badge">${p.seasonTag} · 还剩 ${seasonRemainingDays()} 天</div>`:"";
-    const tag=currentInspireTab==="season"?`<div class="season-tag">来源：${p.src}</div>`:"";
+    const on=state.settings.scheme===p.key;
+    const card=document.createElement("div");card.className="icard";
     card.innerHTML=`
-      ${badge}
       <div class="swatches-row">${p.colors.map(c=>`<div class="sw" style="background:${c}"></div>`).join("")}</div>
       <div class="hexes">${p.colors.map(c=>`<span class="hex">${c.toUpperCase()}</span>`).join("")}</div>
-      <div class="icard-foot"><span class="src">${p.name}</span><button class="fav${faved?" on":""}" data-i="${idx}">${faved?"❤️":"🤍"}</button></div>
-      ${tag}`;
+      <div class="icard-foot"><span class="src">${esc(p.name)}</span><button class="fav${faved?" on":""}" data-i="${idx}">${faved?"❤️":"🤍"}</button></div>
+      <button class="ins-apply" data-key="${p.key}">💜 一键应用${on?" · 已应用":""}</button>`;
     card.querySelector(".fav").addEventListener("click",()=>toggleFav(p));
+    card.querySelector(".ins-apply").addEventListener("click",()=>{
+      state.settings.scheme=p.key;state.settings.accent=null;applyScheme(p.key);save();renderInspireStream();toast("主题已切换 🎨");
+    });
     box.appendChild(card);
   });
 }
@@ -724,12 +720,7 @@ $("#paletteSync").addEventListener("click",()=>{
   fetch(CONFIG.API_BASE+"/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({palette:state.palette})})
     .then(r=>r.ok?toast("已同步到云端 ☁️"):toast("同步失败")).catch(()=>toast("同步失败，检查网络/后端"));
 });
-/* 灵感补给分类切换 */
-$$("#inspireTabs button").forEach(b=>b.addEventListener("click",()=>{
-  $$("#inspireTabs button").forEach(x=>x.classList.remove("active"));
-  b.classList.add("active");
-  renderInspireStream(b.dataset.tab);
-}));
+/* 灵感补给：固定展示全网热门 5 套成套配色（见 renderInspireStream），tab 切换已移除 */
 /* 配色日记预览 → 完整页 */
 $("#palDiaryPrev").addEventListener("click",openDiary);
 /* 子页返回 */
