@@ -1,4 +1,4 @@
-/* ═══════════ GoalDay v2 · GoalDay周计划 × 氢时光全模块 ═══════════ */
+/* ═══════════ 计划册 v2 · 计划册周计划 × 氢时光全模块 ═══════════ */
 "use strict";
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -36,7 +36,7 @@ function defaultState(){
       {id:l4,name:"学习",emoji:"📚",color:"#b8aeeb"},
     ],
     tasks:[
-      {id:uid(),listId:null,title:"👋 欢迎使用 GoalDay！点我编辑",notes:"我在收集箱里～长按可拖到周历排程",due:null,dueEnd:null,time:null,allDay:false,done:false,abandoned:false,tags:["上手指南"],priority:1,subs:[{id:uid(),title:"去「视图」看看双栏周计划",done:false},{id:uid(),title:"试试番茄钟和打卡",done:false}],createdAt:Date.now(),completedAt:null},
+      {id:uid(),listId:null,title:"👋 欢迎使用 计划册！点我编辑",notes:"我在收集箱里～长按可拖到周历排程",due:null,dueEnd:null,time:null,allDay:false,done:false,abandoned:false,tags:["上手指南"],priority:1,subs:[{id:uid(),title:"去「视图」看看双栏周计划",done:false},{id:uid(),title:"试试番茄钟和打卡",done:false}],createdAt:Date.now(),completedAt:null},
       {id:uid(),listId:l1,title:"📝 填截止日期会自动进周历",notes:"",due:todayStr(),dueEnd:null,time:"18:00",allDay:false,done:false,abandoned:false,tags:[],priority:0,subs:[],createdAt:Date.now(),completedAt:null},
     ],
     events:[], goals:{},
@@ -2138,7 +2138,7 @@ function doExport(){
   const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download=`GoalDay备份-${todayStr()}.json`;
+  a.download=`计划册备份-${todayStr()}.json`;
   a.click();URL.revokeObjectURL(a.href);
   toast("💾 已导出，保存到 iCloud云盘 即可跨设备同步");
 }
