@@ -49,7 +49,7 @@ function defaultState(){
       {id:uid(),name:"阅读30分钟",emoji:"📖",color:"#b8aeeb",listId:l4,hidden:false,archived:false,checks:{},createdAt:Date.now()},
     ],
     pomo:{focusMin:25,breakMin:5,noise:false,records:[]},
-    settings:{theme:"morandi",accent:null},
+    settings:{scheme:null,accent:null},
     activeTab:"todo",
     /* v10：新功能数据 */
     revMode:"data",
@@ -83,7 +83,7 @@ function load(){
       if(st.viewMode!=="day"&&st.viewMode!=="week")st.viewMode="week";
       if(st.todoSel==="quad"||st.todoSel==="done"||st.todoSel==="abandoned")st.todoSel="inbox";
       if(st.poolList==="inbox")st.poolList="all";   /* v9：收集箱统一为「全部未排期」池 */
-      if(!["princess","flower","morandi","macaron"].includes(st.settings&&st.settings.theme))st.settings=Object.assign({theme:"morandi"},st.settings||{});
+      if(st.settings&&st.settings.scheme===undefined)st.settings.scheme=null;
       if(!st.todoLayer)st.todoLayer="inbox";
       if(!st.reviewDim)st.reviewDim="week";
       if(!st.revMode)st.revMode="data";
@@ -1923,20 +1923,109 @@ function renderRevCal(){
   });
 }
 
-/* ═══════════ Tab5 设置 · 主题配色 ═══════════ */
-const THEMES={
-  princess:{name:"公主色系",colors:["#FFB3C6","#FFD6E0","#FFF5F7"]},
-  flower:{name:"花束色系",colors:["#F2B56F","#FFE0D6","#FFF8F0"]},
-  morandi:{name:"莫兰迪色系",colors:["#B8AEAB","#D5CFC5","#F5F0EB"]},
-  macaron:{name:"马卡龙色系",colors:["#6FC2A8","#D9EEFF","#FFFDF5"]},
-};
-function applyTheme(t){
-  document.body.dataset.theme=t;
+/* ═══════════ Tab5 设置 · 主题配色（红橙黄绿青蓝紫 7 色系） ═══════════ */
+/* 每个色系预置多套完整成套配色方案；一键应用 → 全局换肤（data-scheme + 动态样式） */
+const COLOR_SYSTEMS=[
+  {key:"red",name:"红色系",emoji:"🔴",schemes:[
+    {key:"red-0",name:"枫叶晚霞",colors:["#C77B6E","#DDA191","#F0CFC4","#FBF1ED","#A6554A"]},
+    {key:"red-1",name:"莓果奶霜",colors:["#C2778C","#DDA0B0","#F0CDD6","#FBEEF1","#A4526A"]},
+    {key:"red-2",name:"砖红陶土",colors:["#B5654E","#CF8570","#E8C2B4","#F6E7DF","#8C4636"]},
+  ]},
+  {key:"orange",name:"橙色系",emoji:"🟠",schemes:[
+    {key:"orange-0",name:"焦糖拿铁",colors:["#D99A5B","#E8B884","#F2D9B8","#FBF1E4","#B5763A"]},
+    {key:"orange-1",name:"蜜橘午后",colors:["#E0A05A","#EFC083","#F8DCB8","#FDF3E6","#C07B38"]},
+    {key:"orange-2",name:"杏花微醺",colors:["#E2A074","#EFC09C","#F8DECB","#FBF0E9","#C27A50"]},
+  ]},
+  {key:"yellow",name:"黄色系",emoji:"🟡",schemes:[
+    {key:"yellow-0",name:"鹅黄奶油",colors:["#E0C05C","#EFD98A","#F7ECC0","#FCF8E9","#C0A03E"]},
+    {key:"yellow-1",name:"桂花蜜糖",colors:["#DDB95A","#ECCB86","#F5E3B8","#FBF4E3","#BC9540"]},
+    {key:"yellow-2",name:"柠檬苏打",colors:["#D9CC5E","#EAD98A","#F5ECC0","#FBF8E6","#BBA83C"]},
+  ]},
+  {key:"green",name:"绿色系",emoji:"🟢",schemes:[
+    {key:"green-0",name:"薄荷微风",colors:["#7FB89A","#A6D2BC","#CDE8DA","#EEF6F1","#5C9678"]},
+    {key:"green-1",name:"抹茶千层",colors:["#8FAE6C","#B2C98E","#D6E3B6","#F1F5E6","#6E8A4E"]},
+    {key:"green-2",name:"鼠尾草",colors:["#9DB39A","#BFD2BC","#DDE9DC","#F2F6F1","#7A9479"]},
+  ]},
+  {key:"cyan",name:"青色系",emoji:"🩵",schemes:[
+    {key:"cyan-0",name:"晴空海盐",colors:["#6FB6C9","#9FD0DD","#C9E7EF","#EEF6F9","#4E94A8"]},
+    {key:"cyan-1",name:"薄荷青",colors:["#6FC2C0","#9FD8D6","#C9EAE9","#EEF7F7","#4E9E9C"]},
+    {key:"cyan-2",name:"冰川湖",colors:["#6FA9B8","#9CC8D2","#C6E0E7","#EDF4F7","#4E8694"]},
+  ]},
+  {key:"blue",name:"蓝色系",emoji:"🔵",schemes:[
+    {key:"blue-0",name:"雾蓝毛衣",colors:["#7E97C9","#A6BADD","#C9D6EE","#EEF1F8","#5C76A8"]},
+    {key:"blue-1",name:"海盐蓝",colors:["#6F9FD6","#9DC0E8","#C6DBF2","#EDF3FB","#4E7CB4"]},
+    {key:"blue-2",name:"静谧蓝",colors:["#8290C4","#AAB4DD","#CCD3EE","#EEF0F8","#5E6CA8"]},
+  ]},
+  {key:"purple",name:"紫色系",emoji:"🟣",schemes:[
+    {key:"purple-0",name:"薰衣草",colors:["#9B8EC9","#BCB0DD","#D9D2EE","#F1EEF8","#786AA8"]},
+    {key:"purple-1",name:"葡萄气泡",colors:["#A07CC0","#C0A0D8","#DCC2EC","#F3EEF8","#7C5AA0"]},
+    {key:"purple-2",name:"豆沙紫",colors:["#B08AA6","#CDAAC2","#E5CDDC","#F6EEF2","#8C6483"]},
+  ]},
+];
+/* 灵感补给 · 全网热门固定 5 套成套配色 */
+const INSPIRE_HOT5=[
+  {key:"hot-0",name:"莫兰迪日常",src:"🌐 全网精选",colors:["#A99B95","#C9BFB4","#D5CFC5","#F5F0EB","#8A7C76"]},
+  {key:"hot-1",name:"莓果奶霜",src:"📕 小红书热门",colors:["#C2778C","#DDA0B0","#F0CDD6","#FBEEF1","#A4526A"]},
+  {key:"hot-2",name:"薄荷微风",src:"🎨 Color Hunt",colors:["#7FB89A","#A6D2BC","#CDE8DA","#EEF6F1","#5C9678"]},
+  {key:"hot-3",name:"海盐蓝",src:"📕 小红书热门",colors:["#6F9FD6","#9DC0E8","#C6DBF2","#EDF3FB","#4E7CB4"]},
+  {key:"hot-4",name:"焦糖拿铁",src:"🌸 2026 春夏",colors:["#D99A5B","#E8B884","#F2D9B8","#FBF1E4","#B5763A"]},
+];
+/* 换肤注册表 + 动态样式：根据方案主色自动推导整套变量（与平台 data-theme 机制一致） */
+const SCHEME_REGISTRY={};
+function registerScheme(key,colors){SCHEME_REGISTRY[key]={key,colors};}
+function schemeVars(c){
+  const main=c[0];
+  const {h,s}=hexToHsl(main);
+  const MS=Math.min(s,42);
+  return {
+    "--bar":hslToHex(h,Math.min(s,22),96),
+    "--bar-2":hslToHex(h,Math.min(s,30),92),
+    "--bg":"#FFFFFF",
+    "--bg-soft":hslToHex(h,Math.min(s,26),97),
+    "--line":hslToHex(h,Math.min(s,20),90),
+    "--ink":hslToHex(h,Math.min(Math.max(s,20),24),30),
+    "--ink-soft":hslToHex(h,Math.min(s,18),46),
+    "--ink-3":hslToHex(h,Math.min(s,18),66),
+    "--accent":main,
+    "--accent-deep":accentDeep(main),
+    "--accent-soft":hslToHex(h,MS,90),
+    "--accent-bg":hslToHex(h,Math.min(s,30),96),
+  };
+}
+function applyScheme(key){
+  const root=document.body;
+  if(!key||!SCHEME_REGISTRY[key]){root.removeAttribute("data-scheme");return;}
+  let style=document.getElementById("dynamicTheme");
+  if(!style){style=document.createElement("style");style.id="dynamicTheme";document.head.appendChild(style);}
+  const v=schemeVars(SCHEME_REGISTRY[key].colors);
+  const rule="body[data-scheme=\""+key+"\"]{"+Object.entries(v).map(([k,val])=>k+":"+val).join(";")+";}";
+  let css=style.textContent.replace(new RegExp("body\\[data-scheme=\""+key+"\"\\]\\{[^}]*\\}","g"),"");
+  style.textContent=css+"\n"+rule;
+  root.setAttribute("data-scheme",key);
+  ["--accent","--accent-deep","--accent-soft","--accent-bg"].forEach(p=>root.style.removeProperty(p));
   const meta=document.querySelector('meta[name=theme-color]');
-  const bar=getComputedStyle(document.body).getPropertyValue("--bar").trim();
-  if(meta&&bar)meta.setAttribute("content",bar);
-  renderThemePreview(t);
-  applyAccent();
+  if(meta&&v["--bar"])meta.setAttribute("content",v["--bar"]);
+  if(typeof renderReview==="function"&&state.activeTab==="review"){try{renderReview();}catch(e){}}
+}
+let currentColorSys="red";
+function renderColorSystems(){
+  const box=$("#sysSchemes");if(!box)return;
+  const sys=COLOR_SYSTEMS.find(s=>s.key===currentColorSys)||COLOR_SYSTEMS[0];
+  let html=`<div class="sys-head">${sys.emoji} ${sys.name} · 点击方案一键应用到全局</div><div class="sys-list">`;
+  sys.schemes.forEach(sc=>{
+    const on=state.settings.scheme===sc.key;
+    const sw=sc.colors.map(c=>`<span style="background:${c}"></span>`).join("");
+    html+=`<div class="sys-scheme${on?" on":""}">
+      <div class="sys-sw">${sw}</div>
+      <div class="sys-meta"><div class="sys-name">${esc(sc.name)}</div>${on?'<div class="sys-badge">✓ 已应用</div>':''}</div>
+      <button class="sys-apply" data-key="${sc.key}">💜 一键应用</button>
+    </div>`;
+  });
+  html+=`</div>`;
+  box.innerHTML=html;
+  box.querySelectorAll(".sys-apply").forEach(b=>b.addEventListener("click",()=>{
+    const k=b.dataset.key;state.settings.scheme=k;state.settings.accent=null;applyScheme(k);save();renderColorSystems();toast("主题已切换 🎨");
+  }));
 }
 /* 全局主色调（调色盘联动）：自动生成 深色/浅色/强调 变体，全局替换
    联动范围：顶部导航底色、底部Tab选中色、卡片底色、按钮主色、清单圆点、
@@ -1992,7 +2081,6 @@ function renderThemeCustom(){
   html+=`</div>`;
   if(!themeShowAll&&all.length>5)html+=`<button class="tc-more" id="tcMore">查看全部 ${all.length} 个 →</button>`;
   if(state.settings.accent)html+=`<button class="tc-reset" id="tcReset">↺ 恢复默认主题色</button>`;
-  html+=renderRecPalettes();
   box.innerHTML=html;
   box.querySelectorAll(".tc-cell").forEach(cell=>{
     const i=+cell.dataset.i,c=cols[i];
@@ -2051,41 +2139,21 @@ function hslToHex(h,s,l){
   const to=v=>Math.round((v+m)*255).toString(16).padStart(2,"0");
   return "#"+to(r)+to(g)+to(b);
 }
-function harmonize(hex){
-  const {h,s,l}=hexToHsl(hex);const S=Math.max(s,45),L=Math.max(42,Math.min(70,l));
-  const A=[hslToHex((h-30+360)%360,S,L),hex,hslToHex((h+30)%360,S,L)];
-  const C=[hex,hslToHex((h+180)%360,Math.max(S,40),L)];
-  const M=[hslToHex(h,Math.min(S,30),Math.min(88,L+22)),hex,hslToHex(h,Math.max(S,55),Math.max(34,L-20))];
-  return [{name:"类比色",colors:A},{name:"互补色",colors:C},{name:"同色系深浅",colors:M}];
-}
-function renderRecPalettes(){
-  const base=state.settings.accent||"#A99B95";
-  const schemes=harmonize(base);
-  let html=`<div class="tc-rec"><div class="tc-title" style="margin:0 0 8px">✨ 为你推荐的配色（基于主色自动生成）</div>`;
-  schemes.forEach(s=>{
-    const sw=s.colors.map(c=>`<span style="background:${c}"></span>`).join("");
-    html+=`<div class="rec-row"><div class="rec-sw" data-hex="${s.colors[0]}">${sw}</div><div class="rec-label">${s.name}</div><button class="rec-apply" data-hex="${s.colors[0]}">应用</button></div>`;
-  });
-  html+=`</div>`;
-  return html;
-}
-function renderThemePreview(t){
-  const box=$("#themePreview");if(!box)return;
-  const th=THEMES[t]||THEMES.morandi;
-  box.innerHTML=th.colors.map(c=>`<span class="pv" style="background:${c}"></span>`).join("")+`<span class="pv-name">${th.name}</span>`;
-}
+/* harmonize（基于主色自动推导推荐配色）已随「为你推荐」板块下线移除 */
 function renderSettings(){
-  $$("#themeList .theme-item").forEach(b=>b.classList.toggle("sel",b.dataset.t===state.settings.theme));
-  renderThemePreview(state.settings.theme);
+  $$("#themeList .theme-item").forEach(b=>b.classList.toggle("sel",b.dataset.sys===currentColorSys));
+  renderColorSystems();
   renderThemeCustom();
 }
 $$("#themeList .theme-item").forEach(b=>b.addEventListener("click",()=>{
-  state.settings.theme=b.dataset.t;applyTheme(b.dataset.t);renderSettings();save();toast("主题已切换 🎨");
+  currentColorSys=b.dataset.sys;
+  $$("#themeList .theme-item").forEach(x=>x.classList.toggle("sel",x.dataset.sys===currentColorSys));
+  renderColorSystems();
 }));
 /* 清空当前数据：保留调色盘收藏与主题设置，重置为 4 清单空初始态 */
 function resetCleanState(){
   const keepPalette=JSON.parse(JSON.stringify(state.palette||{favs:[],colors:[],lastInspire:null}));
-  const keepSettings=JSON.parse(JSON.stringify(state.settings||{theme:"morandi",accent:null}));
+  const keepSettings=JSON.parse(JSON.stringify(state.settings||{scheme:null,accent:null}));
   const l1=uid(),l2=uid(),l3=uid(),l4=uid();
   state={
     version:2,
@@ -2153,7 +2221,7 @@ $("#jsonFile").addEventListener("change",e=>{
       if(!data.tasks||!data.lists)throw 0;
       if(confirm("恢复备份将覆盖当前数据，继续吗？")){
         state=Object.assign(defaultState(),data);
-        document.body.dataset.theme=state.settings.theme;
+        if(state.settings.scheme&&SCHEME_REGISTRY[state.settings.scheme])applyScheme(state.settings.scheme);applyAccent();
         renderAll();toast("📂 备份已恢复 ✨");
       }
     }catch{toast("⚠️ 文件格式不正确");}
@@ -2219,7 +2287,11 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 
 /* ═══════════ PWA & 启动 ═══════════ */
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
-applyTheme(state.settings.theme||"morandi");
+/* 注册全部配色方案并应用已保存方案（无则使用默认莫兰迪基底） */
+COLOR_SYSTEMS.forEach(sys=>sys.schemes.forEach(sc=>registerScheme(sc.key,sc.colors)));
+if(typeof INSPIRE_HOT5!=="undefined")INSPIRE_HOT5.forEach(p=>registerScheme(p.key,p.colors));
+if(state.settings.scheme&&SCHEME_REGISTRY[state.settings.scheme])applyScheme(state.settings.scheme);
+applyAccent();
 initSplitter();
 switchTab(state.activeTab||"todo");
 if(toastLater)setTimeout(()=>toast(toastLater),600);
