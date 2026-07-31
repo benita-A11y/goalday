@@ -202,8 +202,8 @@ body.col-resizing *{cursor:col-resize!important;}
 /* ── 左侧：周历 ── */
 .week-grid{display:flex;flex-direction:column;}
 .day-cell{
-  padding:12px 12px 14px;border-bottom:.5px solid var(--line);transition:.18s;
-  display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;
+  padding:12px 4px 14px;border-bottom:.5px solid var(--line);transition:.18s;
+  display:flex;flex-direction:column;align-items:stretch;gap:6px;
   min-height:158px;
 }
 .day-cell:last-child{border-bottom:0;}
@@ -570,7 +570,7 @@ body.dragging *{cursor:grabbing!important;}
   /* 窄屏：双栏布局已由全局 flex 规则保证永远并排，这里只做字号/间距微调。
      关键：任务文字自动换行，绝不截断、绝不把双栏堆叠成上下。 */
   .view-switch{padding:calc(8px + env(safe-area-inset-top)) 14px 4px;}
-  .day-cell{padding:9px 8px 10px;grid-template-columns:30px 1fr;gap:7px;}
+  .day-cell{padding:9px 4px 10px;gap:7px;}
   .day-num{font-size:16px;}
   .day-wk{font-size:9.5px;margin-top:2px;}
   .chips{gap:3px;}
@@ -607,8 +607,8 @@ body.dragging *{cursor:grabbing!important;}
   .cal-panel{display:flex;flex-direction:column;overflow:hidden;}
   .week-grid{flex:1 1 auto;min-height:0;overflow:hidden;}
   .day-cell{
-    flex:1 1 0;min-height:0;padding:5px 8px;
-    display:grid;grid-template-columns:30px 1fr;gap:6px;align-items:start;
+    flex:1 1 0;min-height:0;padding:5px 4px;
+    display:flex;flex-direction:column;align-items:stretch;gap:4px;
     overflow:hidden;border-bottom:.5px solid var(--line);
   }
   .day-cell:last-child{border-bottom:0;}
@@ -1172,9 +1172,14 @@ body.no-scroll{overflow:hidden;}
   max-height:90vh;display:flex;flex-direction:column;overflow:hidden;
   transform:translateY(100%);transition:transform .3s ease-out;box-shadow:0 -10px 40px rgba(0,0,0,.2);}
 .day-detail-mask.open .day-detail-sheet{transform:translateY(0);}
-.dds-head{display:flex;align-items:center;gap:10px;padding:16px 18px 10px;}
-.dds-back{background:none;border:none;color:var(--accent);font-size:15px;font-weight:600;cursor:pointer;padding:4px 2px;flex:none;}
-.dds-date{font-size:17px;font-weight:700;text-align:center;flex:1;color:var(--ink);}
+.dds-head{display:flex;align-items:center;gap:8px;padding:14px 16px 10px;}
+.dds-nav{background:none;border:none;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;padding:6px 9px;flex:none;border-radius:9px;white-space:nowrap;transition:background .15s;}
+.dds-nav:hover{background:rgba(0,0,0,.05);}
+.dds-titles{flex:1;min-width:0;text-align:center;}
+.dds-pagetitle{text-align:center;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1px;padding:2px 0;}
+.dds-date{font-size:16px;font-weight:700;color:var(--ink);}
+.dds-close{background:none;border:none;color:var(--ink-soft);font-size:18px;line-height:1;cursor:pointer;padding:4px 9px;flex:none;border-radius:9px;transition:background .15s,color .15s;}
+.dds-close:hover{background:rgba(0,0,0,.07);color:var(--ink);}
 .dds-stat{font-size:13px;color:var(--ink-soft);text-align:center;padding:0 18px 10px;}
 .dds-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:4px 18px 8px;
   scrollbar-width:thin;scrollbar-color:rgba(120,110,100,.4) transparent;}
@@ -1220,10 +1225,15 @@ body.no-scroll{overflow:hidden;}
 .dds-list.slide-prev{animation:ddSlidePrev .25s ease;}
 @keyframes ddSlideNext{from{transform:translateX(24px);opacity:.3;}to{transform:translateX(0);opacity:1;}}
 @keyframes ddSlidePrev{from{transform:translateX(-24px);opacity:.3;}to{transform:translateX(0);opacity:1;}}
-/* 桌面端：居中卡片 */
+/* 桌面端：从右侧滑入的便签卡片（覆盖在周视图之上） */
 @media (min-width:821px){
-  .day-detail-mask{align-items:center;}
-  .day-detail-sheet{max-width:480px;max-height:86vh;border-radius:20px;margin:auto;}
+  .day-detail-mask{align-items:stretch;justify-content:flex-end;}
+  .day-detail-sheet{
+    width:min(460px,46vw);max-width:none;height:100%;max-height:none;margin:0;
+    border-radius:18px 0 0 18px;box-shadow:-12px 0 40px rgba(0,0,0,.18);
+    transform:translateX(100%);transition:transform .3s ease-out;
+  }
+  .day-detail-mask.open .day-detail-sheet{transform:translateX(0);}
 }
 
 /* ═══ 周计划 · 日清单入口卡片 ═══ */
@@ -1238,11 +1248,10 @@ body.no-scroll{overflow:hidden;}
 .dlc-title{font-size:14.5px;font-weight:700;color:var(--ink);}
 .dlc-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
-/* 单日详情页标题 */
-.dds-pagetitle{text-align:center;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:1px;padding:2px 0;}
-.dds-head{flex-direction:column;align-items:stretch;gap:2px;}
-.dds-head .dds-back{align-self:flex-start;}
-.dds-head .dds-date{text-align:center;}
+/* 单日详情页标题（移动端：保持横排，仅微调间距） */
+.dds-head{padding:12px 12px 8px;gap:6px;}
+.dds-titles{text-align:center;}
+.dds-date{font-size:15px;}
 
 /* 单元格滚动条（修改点一：标题固定，仅任务区滚动） */
 .day-cell .chips{overflow:visible;}
@@ -1285,3 +1294,78 @@ body.no-scroll{overflow:hidden;}
 .rec-ok{color:#7FB89A;font-size:12px;flex:none;}
 .rec-row.rec-del{opacity:.7;}
 .dp-empty{text-align:center;color:var(--ink-soft);font-size:13px;padding:18px 12px;}
+
+/* ═══════════════════════════════════════════════════════════
+   v19 修改点一 · 日清单回退为「单栏列表」样式
+   顶部：日期 + 任务总数；下方：任务纵向列表（复用 .dd-row 上一版行样式）
+   ═══════════════════════════════════════════════════════════ */
+#dayWrap:not([hidden]){display:flex;flex-direction:column;min-height:0;}
+#dayWrap .sub-head{flex:0 0 auto;}
+.dl-one{
+  flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;
+  margin:4px 12px 12px;background:var(--bg);border:1px solid var(--line);
+  border-radius:var(--r);box-shadow:var(--shadow);
+}
+.dl-one-head{flex:0 0 auto;padding:14px 18px 10px;border-bottom:.5px solid rgba(90,80,70,.12);}
+.dl-oh-date{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.2px;}
+.dl-oh-stat{font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
+.dl-one-list{
+  flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:2px 18px 10px;
+  scrollbar-width:thin;scrollbar-color:rgba(120,110,100,.4) transparent;
+}
+.dl-one-list::-webkit-scrollbar{width:5px;}
+.dl-one-list::-webkit-scrollbar-track{background:transparent;}
+.dl-one-list::-webkit-scrollbar-thumb{background:rgba(120,110,100,.35);border-radius:4px;}
+.dl-one-list::-webkit-scrollbar-thumb:hover{background:rgba(120,110,100,.7);}
+.dl-one-list .dd-row:last-child{border-bottom:0;}
+.dl-one-empty{
+  flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;padding:48px 16px;text-align:center;color:var(--ink-soft);
+}
+.dl-one-empty .de-emoji{font-size:40px;}
+.dl-one-empty .de-title{font-size:15px;font-weight:600;color:var(--ink);}
+.dl-one-empty .de-sub{font-size:12.5px;line-height:1.6;}
+@media (min-width:821px){
+  .dl-one{min-height:360px;max-height:calc(100vh - 210px);}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   v21 修改点一 · 周视图单日：日期标题占满整行在上，
+   任务列表平铺至整个单元格 100% 宽度，滚动条贴单元格最右边缘（不挤占文字）
+   ═══════════════════════════════════════════════════════════ */
+.day-cell{
+  --cell-px:4px;
+  display:flex;flex-direction:column;align-items:stretch;gap:6px;
+  padding-left:var(--cell-px);padding-right:var(--cell-px);
+}
+/* 日期标题固定在上方，占满整行（数字 + 星期 横向排列） */
+.day-cell .day-head{
+  flex:0 0 auto;width:100%;
+  display:flex;flex-direction:row;align-items:baseline;justify-content:flex-start;gap:7px;
+  text-align:left;padding:0 0 5px;border-bottom:.5px solid rgba(90,80,70,.10);
+}
+.day-cell .day-wk{margin-top:0;}
+/* 任务列表占满单元格宽度，不缩窄、不偏移 */
+.day-cell .chips{width:100%;min-width:0;margin:0;padding-right:0;}
+/* 出现滚动条时：抵消单元格右内边距 → 滚动条紧贴单元格右边界，不吃文字宽度 */
+.day-cell.has-scroll .chips{
+  margin-right:calc(var(--cell-px) * -1);
+  padding-right:6px;              /* 滚动条 4px + 右侧间距 2px */
+  flex:0 1 auto;min-height:0;     /* 单元格空间不足时可收缩，避免被裁切 */
+}
+@media (max-width:820px){
+  .day-cell{--cell-px:8px;gap:4px;}
+  .day-cell .day-head{padding-bottom:3px;}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   v20 · 云同步面板（全量数据）输入控件
+   ═══════════════════════════════════════════════════════════ */
+.set-label{display:block;font-size:12.5px;color:var(--ink-soft);margin:8px 0 4px;font-weight:600;}
+.set-input{
+  width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--ink);font-size:13px;outline:none;
+}
+.set-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);}
+#syncStatus{margin-top:8px;font-size:12px;}
