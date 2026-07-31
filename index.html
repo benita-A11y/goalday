@@ -78,15 +78,12 @@
       <button id="fabView" title="切换 概览/详情">›</button>
     </div>
     <div class="vwrap" id="dayWrap" hidden>
-      <div class="sub-head day-toolbar">
+      <div class="sub-head day-toolbar day-head">
         <button id="dayBack" class="round-btn" title="返回周视图">‹</button>
-        <button id="tlAddBtn" class="mini-btn" title="新增任务">＋ 任务</button>
-        <button id="dayBackWeek" class="mini-btn" title="返回周视图">📅 周视图</button>
-      </div>
-      <div class="day-nav">
-        <button id="dnPrev" class="dn-arrow" title="前一天">‹</button>
-        <div class="dn-days" id="dnDays"></div>
-        <button id="dnNext" class="dn-arrow" title="后一天">›</button>
+        <div class="day-head-main">
+          <span id="dayHeadDate" class="day-head-date">7月31日 周五</span>
+          <span id="dayHeadCount" class="day-head-count">今日清单 · 共 0 项</span>
+        </div>
       </div>
       <div class="dl-cols" id="dlCols">
         <div class="dl-left" id="dlLeft">
@@ -222,7 +219,7 @@
 
 <!-- ═══════════ Tab4 复盘 ═══════════ -->
 <section class="page" id="page-review">
-  <header class="page-head center"><h1>📊 复盘</h1></header>
+  <header class="page-head center"><h1>📊 复盘</h1><button id="revRefresh" class="rev-refresh" title="刷新数据">↻</button></header>
   <div class="sub-tabs" id="revDims">
     <button data-d="day">日</button>
     <button data-d="week" class="active">周</button>
