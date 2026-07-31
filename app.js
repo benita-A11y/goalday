@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 18;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 19;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -112,7 +112,7 @@ function load(){
       st.inspirations=(st.inspirations||[]).map(n=>({
         id:n.id||uid(),text:n.text||"",img:n.img||null,
         createdAt:n.createdAt||Date.now(),
-        status:(n.status==="trash"||n.status==="categorized")?n.status:"inbox",
+        status:(n.status==="trash"||n.status==="tategorized"||n.status==="triage")?n.status:"inbox",
         deletedAt:n.deletedAt||null,
       }));
       return st;
@@ -217,7 +217,7 @@ function switchTab(tab){
   $("#fabView").style.display=(inPlan&&state.viewMode==="week")?"block":"none";
   renderTab(tab); save();
 }
-$$("#tabbar button").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
+$$("#tabbar button").forEach(b=>b.addEventListener("click",()=>{if(b.dataset.tab==="todo")state.todoLayer="inbox";switchTab(b.dataset.tab);}));
 function renderTab(tab){
   if(tab==="todo")renderTodo();
   else if(tab==="habit")renderHabit();
@@ -549,14 +549,14 @@ function enableSwipeReveal(row,opts){
   front.addEventListener("pointermove",e=>{
     if(!tracking)return;const dx=e.clientX-sx,dy=e.clientY-sy;
     if(decided===null&&Math.abs(dx)>8&&Math.abs(dx)>Math.abs(dy)){decided=dx<0?"L":"R";if(!blurred){const a=document.activeElement;a&&a.blur&&a.blur();blurred=true;}}
-    if(decided==="L"&&opts.left)front.style.transform="translateX("+Math.max(-92,dx)+"px)";
-    else if(decided==="R"&&opts.right)front.style.transform="translateX("+Math.min(92,dx)+"px)";
+    if(decided==="L"&&opts.left)front.style.transform="translateX("+Math.max(-100,dx)+"px)";
+    else if(decided==="R"&&opts.right)front.style.transform="translateX("+Math.min(100,dx)+"px)";
   });
   front.addEventListener("pointerup",()=>{
     if(!tracking)return;tracking=false;
     const m=front.style.transform.match(/-?\d+(\.\d+)?/);const cur=m?parseFloat(m[0]):0;
-    if(decided==="L"&&opts.left&&cur<=-46){row.classList.add("sw-open");front.style.transform="translateX(-92px)";}
-    else if(decided==="R"&&opts.right&&cur>=46){row.classList.add("sw-open");front.style.transform="translateX(92px)";}
+    if(decided==="L"&&opts.left&&cur<=-50){row.classList.add("sw-open");front.style.transform="translateX(-100px)";}
+    else if(decided==="R"&&opts.right&&cur>=50){row.classList.add("sw-open");front.style.transform="translateX(100px)";}
     else front.style.transform="";
   });
   front.addEventListener("pointercancel",()=>{tracking=false;front.style.transform="";});
@@ -2761,7 +2761,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v18";
+  const SW_URL="sw.js?__v=jihua-v19";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -2797,6 +2797,7 @@ if(state.settings.scheme&&SCHEME_REGISTRY[state.settings.scheme])applyScheme(sta
 applyAccent();
 initSplitter();
 initDaySplitter();
+if((state.activeTab||"todo")==="todo")state.todoLayer="inbox";   /* 待办模块首页 = 灵感收集箱 */
 switchTab(state.activeTab||"todo");
 if(toastLater)setTimeout(()=>toast(toastLater),600);
 function initReviewRefresh(){
