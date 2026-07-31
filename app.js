@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 20;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 21;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -437,7 +437,7 @@ function renderInbox(){
   const body=$("#todoBody");body.innerHTML="";
   const list=state.inspirations.filter(n=>n.status==="inbox");
   const wrap=document.createElement("div");wrap.className="insp-editor";
-  if(!list.length)wrap.innerHTML=`<div class="insp-empty">🌸 灵感收集箱空空的<br><span class="dim">记录你一闪而过的念头吧<br>左滑灵感 → 归类到我的清单</span></div>`;
+  if(!list.length)wrap.innerHTML=`<div class="insp-empty">🌸 灵感收集箱空空的<br><span class="dim">记录你一闪而过的念头吧<br>点击右侧「分类」按钮 → 归入我的清单</span></div>`;
   list.forEach(n=>wrap.appendChild(inspRow(n)));
   body.appendChild(wrap);
   /* 点空白处（含空白提示）新建一行并聚焦 */
@@ -453,7 +453,7 @@ function renderInbox(){
   /* 底部交互指引 + 今日已记录条数 */
   const hint=document.createElement("div");hint.className="insp-hint";
   const todayN=state.inspirations.filter(n=>n.createdAt&&new Date(n.createdAt).toDateString()===new Date().toDateString()).length;
-  hint.innerHTML=`<span class="ih-swipe">💡 左滑 → 归类到清单</span><span class="ih-stat">📊 今日已记录 ${todayN} 条灵感</span>`;
+  hint.innerHTML=`<span class="ih-swipe">💡 点击右侧「分类」按钮 → 归入我的清单</span><span class="ih-stat">📊 今日已记录 ${todayN} 条灵感</span>`;
   body.appendChild(hint);
   renderInspSelBar();
   applyEmoji();
@@ -489,17 +489,14 @@ function inspRow(n){
     if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();insertInspLineBreak(txt,n);}
     else if(e.key==="Backspace"&&!txt.textContent.trim()){e.preventDefault();delInspRow(n.id);}
   });
-  const plus=document.createElement("button");plus.className="ib-add";plus.type="button";plus.textContent="＋";plus.title="添加图片";
-  plus.addEventListener("click",e=>{e.stopPropagation();window.__pendingInsp=n.id;$("#inspPhoto").click();});
-  const mic=document.createElement("button");mic.className="ib-add ib-mic";mic.type="button";mic.textContent="🎤";mic.title="语音输入";
-  mic.addEventListener("click",e=>{e.stopPropagation();startVoice(txt);});
-  front.append(bullet,txt,plus,mic);
+  /* 右侧「分类」按钮：点击 → 弹清单选择器 → 归入（取代原左滑操作，更直接） */
+  const cat=document.createElement("button");cat.className="ib-catbtn";cat.type="button";cat.textContent="分类";cat.title="归入我的清单";
+  cat.addEventListener("click",e=>{e.stopPropagation();categorizeInsp(n.id);});
+  front.append(bullet,txt,cat);
   if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
   row.appendChild(front);
-  enableSwipeReveal(row,{left:{label:"📂 归类",cls:"ib-cat-act",fn:()=>categorizeInsp(n.id)},right:{label:"📥 待分类",cls:"ib-tri-act",fn:()=>moveToTriage(n.id)}});
   if(inspSel){
-    row.addEventListener("click",e=>{if(e.target.closest(".ib-act")||e.target.closest("button"))return;e.stopPropagation();toggleInspSel(n.id);});
-    row.addEventListener("click",e=>{if(row.classList.contains("sw-open")&&!e.target.closest(".ib-act")){row.classList.remove("sw-open");front.style.transform="";}});
+    row.addEventListener("click",e=>{if(e.target.closest("button"))return;e.stopPropagation();toggleInspSel(n.id);});
   }
   updPh();
   return row;
@@ -581,21 +578,25 @@ function enableSwipeReveal(row,opts){
   row.addEventListener("click",e=>{if(row.classList.contains("sw-open")&&!e.target.closest(".ib-act")){row.classList.remove("sw-open");front.style.transform="";}});
 }
 
-/* ── 待分类（左滑归类 / 右滑删除） ── */
+/* ── 待分类（未分类灵感的筛选视图，与收集箱同源；直接点「分类」归入） ── */
 function renderTriage(){
   $("#todoTitle").textContent="📂 待分类";
   const body=$("#todoBody");body.innerHTML="";
-  const list=state.inspirations.filter(n=>n.status==="triage");
+  /* 待分类 = 所有未分类灵感（inbox 与 triage 状态）的同源视图 */
+  const list=state.inspirations.filter(n=>n.status==="inbox"||n.status==="triage");
   if(!list.length){body.innerHTML=`<div class="insp-empty">🎉 没有待整理的了，灵感都归类好啦</div>`;applyEmoji();return;}
-  const info=document.createElement("div");info.className="triage-info";info.textContent=`共 ${list.length} 条待整理 · 左滑归类到清单（删除请到灵感收集箱或回收站）`;
+  const info=document.createElement("div");info.className="triage-info";info.textContent=`共 ${list.length} 条待归类 · 点击右侧「分类」归入我的清单`;
   body.appendChild(info);
   list.forEach(n=>{
     const row=document.createElement("div");row.className="insp-row";row.dataset.id=n.id;
     const front=document.createElement("div");front.className="insp-front";
-    front.innerHTML=`<span class="ib-bullet" style="pointer-events:none">○</span><div class="ib-text">${escBr(n.text)}</div>`;
+    const bullet=document.createElement("span");bullet.className="ib-bullet";bullet.style.pointerEvents="none";bullet.textContent="○";
+    const txt=document.createElement("div");txt.className="ib-text";txt.style.flex="1";txt.style.whiteSpace="pre-wrap";txt.textContent=n.text;
+    const cat=document.createElement("button");cat.className="ib-catbtn";cat.type="button";cat.textContent="分类";cat.title="归入我的清单";
+    cat.addEventListener("click",e=>{e.stopPropagation();categorizeInsp(n.id);});
+    front.append(bullet,txt,cat);
     if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
     row.appendChild(front);
-    enableSwipeReveal(row,{left:{label:"📂 归类",cls:"ib-cat-act",fn:()=>categorizeInsp(n.id)},right:{label:"↩ 收集箱",cls:"ib-in-act",fn:()=>moveToInbox(n.id)}});
     body.appendChild(row);
   });
   applyEmoji();
@@ -2779,7 +2780,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v20";
+  const SW_URL="sw.js?__v=jihua-v21";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
