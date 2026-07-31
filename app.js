@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 15;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 16;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -41,7 +41,7 @@ function defaultState(){
       {id:uid(),listId:l1,title:"📝 填截止日期会自动进周历",notes:"",due:todayStr(),dueEnd:null,time:"18:00",allDay:false,done:false,abandoned:false,tags:[],priority:0,subs:[],createdAt:Date.now(),completedAt:null},
     ],
     events:[], goals:{},
-    weekOffset:0, weekView:"simple", viewMode:"week", poolList:"all", splitLeft:null,
+    weekOffset:0, weekView:"simple", viewMode:"week", poolList:"all", splitLeft:null, daySplit:null,
     todoLayer:"inbox", todoSel:"inbox",
     reviewDim:"week",
     dayDate:todayStr(), monthOffset:0,
@@ -161,11 +161,10 @@ idbOpen().then(bootRecover).catch(()=>{});
 
 /* ───────── 通用 ───────── */
 function esc(s){const d=document.createElement("div");d.textContent=s||"";return d.innerHTML;}
-/* 非苹果设备用 Twemoji 替换原生 emoji（苹果设备保留系统原生）；自包含，避免初始化依赖 plus.js */
-function applyEmoji(){
-  if(/Mac|iPhone|iPad|iPod/.test(navigator.platform||navigator.userAgent||""))return;
-  if(window.twemoji&&window.twemoji.parse){try{window.twemoji.parse(document.body,{folder:"svg",base:"https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/",ext:".svg"});}catch(e){}}
-}
+/* Emoji 策略：统一使用系统原生 Emoji（苹果设备即苹果风）。已移除 twemoji 第三方图标库（违反「禁止第三方图标库」要求）。
+   若用户把苹果 Emoji 字体放到 goalday/emoji-apple.woff2，styles.css 的 @font-face「Apple Emoji Local」会自动加载，
+   非苹果设备也能显示苹果风；缺失时优雅回退到系统原生 Emoji。 */
+function applyEmoji(){ return; }
 function listOf(id){return state.lists.find(l=>l.id===id);}
 function colorOf(t){const l=listOf(t.listId);return l?l.color:"#b8aeeb";}
 function catOf(h){return listOf(h.listId)||null;}
@@ -226,7 +225,14 @@ function renderTab(tab){
   else if(tab==="review")renderReview();
   else if(tab==="settings")renderSettings();
 }
-function renderAll(){renderTab(state.activeTab);try{renderWeek();}catch(e){}save();if(dayDetailOpen){try{renderDayDetail();}catch(e){}}}
+function renderAll(){
+  renderTab(state.activeTab);
+  const dw=$("#dayWrap");
+  if(state.viewMode==="day"&&dw&&!dw.hidden){renderDay();}   /* 日视图激活时同步刷新时间轴 + 清单池（勾选/拖拽后即时更新） */
+  try{renderWeek();}catch(e){}
+  save();
+  if(dayDetailOpen){try{renderDayDetail();}catch(e){}}
+}
 
 /* ═══════════ Tab1 待办 · 我的空间（灵感→待分类→周计划→我的清单→回收站） ═══════════ */
 let openListId=null;
@@ -1018,9 +1024,8 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dayDetailOpen)close
 const TL_HOUR_H=44, TL_SNAP=30;            /* 每小时像素高 · 吸附分钟（供时间块拖拽复用） */
 const TL_START=6, TL_END=23, TL0=TL_START*60;   /* 时间轴默认范围 06:00–23:00（用户可在设置自定义；此处为常量入口） */
 let tlMoved=false;               /* 拖动后抑制 click 误触 */
-$("#dayNext").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,1);renderDay();save();});
-$("#dayPrev").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,-1);renderDay();save();});
-$("#dayToday").addEventListener("click",()=>{state.dayDate=todayStr();renderDay();save();});
+$("#dnNext").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,1);renderDay();save();});
+$("#dnPrev").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,-1);renderDay();save();});
 $("#dayBack").addEventListener("click",()=>{state.viewMode="week";renderView();save();});
 $("#dayBackWeek").addEventListener("click",()=>{state.viewMode="week";renderView();save();});
 $("#tlAddBtn").addEventListener("click",()=>openTaskModal(null,{due:state.dayDate}));
@@ -1031,10 +1036,68 @@ function tlDur(t){const s=hm2min(t.time);if(s==null)return 60;const e=hm2min(t.t
 function hexA(hex,a){const h=String(hex||"#b8aeeb").replace("#","");const n=parseInt(h.length===3?h.split("").map(c=>c+c).join(""):h,16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
 function renderDay(){
   const ds=state.dayDate;
-  const d=new Date(ds+"T00:00");
-  $("#dayTitle").textContent=`${d.getMonth()+1}月${d.getDate()}日 ${DAY_NAMES[(d.getDay()+6)%7]}`+(ds===todayStr()?" · 今天":"");
+  renderDayNav();
+  applyDaySplit();
   renderDayTimeline(ds);
   renderDayPool();
+}
+/* 顶部 7 天日期导航条：今天 ±3 共 7 天，等宽不折行，今天高亮 + 「今天」徽标，当前查看日选中 */
+function renderDayNav(){
+  const box=$("#dnDays"); if(!box)return;
+  const base=new Date((state.dayDate||todayStr())+"T00:00");
+  base.setDate(base.getDate()-3);
+  const cells=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(base);d.setDate(base.getDate()+i);
+    const ds=fmtDate(d), isToday=ds===todayStr(), sel=(ds===state.dayDate);
+    cells.push(`<button class="dn-day${isToday?" today":""}${sel?" sel":""}" data-ds="${ds}">
+        <span class="d-num">${d.getMonth()+1}月${d.getDate()}日</span>
+        <span class="d-wk">${DAY_NAMES[(d.getDay()+6)%7]}</span>
+        ${isToday?'<span class="d-today-badge">今天</span>':""}
+      </button>`);
+  }
+  box.innerHTML=cells.join("");
+  box.querySelectorAll(".dn-day").forEach(b=>b.addEventListener("click",()=>selectDay(b.dataset.ds)));
+}
+function selectDay(ds){ state.dayDate=ds; renderDay(); save(); }
+/* 日清单两栏宽度：拖动分隔线实时调整，比例存 state.daySplit，下次沿用 */
+function applyDaySplit(){
+  const L=$("#dlLeft"),R=$("#dlRight"); if(!L||!R)return;
+  const pct=Math.max(45,Math.min(85,state.daySplit||68));
+  L.style.flex="0 0 "+pct+"%";
+  R.style.flex="1 1 "+(100-pct)+"%";
+}
+function initDaySplitter(){
+  const sp=$("#dlDivider"); const cols=$("#dlCols"); if(!sp||!cols)return;
+  let on=false,sx=0,startW=0,cw=0;
+  const down=e=>{
+    on=true;sp.classList.add("active");
+    const r=cols.getBoundingClientRect();cw=r.width;
+    const L=$("#dlLeft");startW=L.getBoundingClientRect().width;
+    sx=(e.touches?e.touches[0].clientX:e.clientX);
+    document.body.classList.add("col-resizing");
+    if(e.cancelable)e.preventDefault();
+  };
+  const move=e=>{
+    if(!on)return;
+    const x=(e.touches?e.touches[0].clientX:e.clientX);
+    let pct=(startW+(x-sx))/cw*100;
+    pct=Math.max(45,Math.min(85,pct));
+    state.daySplit=+pct.toFixed(1);
+    applyDaySplit();
+    if(e.cancelable)e.preventDefault();
+  };
+  const up=()=>{
+    if(!on)return;on=false;sp.classList.remove("active");
+    document.body.classList.remove("col-resizing");
+    save();
+  };
+  sp.addEventListener("mousedown",down);
+  sp.addEventListener("touchstart",down,{passive:false});
+  window.addEventListener("mousemove",move);
+  window.addEventListener("touchmove",move,{passive:false});
+  window.addEventListener("mouseup",up);
+  window.addEventListener("touchend",up);
 }
 /* 左栏：时间轴——逐小时刻度 + 已排程任务块（重叠并排）+ 当前时间红线 + 空时段占位 */
 function renderDayTimeline(ds){
@@ -1070,17 +1133,28 @@ function renderDayTimeline(ds){
     blk.style.width=`calc(${100/tc}% - 5px)`;
     const col=colorOf(t);
     blk.style.background=hexA(col,.20);blk.style.borderColor=hexA(col,.45);blk.style.borderLeftColor=col;
-    blk.innerHTML=`<button class="tb-st${t.done?" on":""}" aria-label="完成"></button><div class="tb-body"><div class="tb-title">${esc(t.title)}</div><div class="tb-time">${esc(t.time)}${t.timeEnd?(" – "+esc(t.timeEnd)):""}</div></div><div class="tb-resize" title="拖动调整时长"></div>`;
+    blk.innerHTML=`<span class="tb-st" role="button" aria-label="完成">${t.done?"☑️":"◻️"}</span><div class="tb-body"><div class="tb-title">${esc(t.title)}</div><div class="tb-time">${esc(t.time)}${t.timeEnd?(" – "+esc(t.timeEnd)):""}</div></div><div class="tb-resize" title="拖动调整时长"></div>`;
     const st=blk.querySelector(".tb-st");st.addEventListener("click",ev=>{ev.stopPropagation();toggleDone(t,!t.done);});
     blk.addEventListener("click",()=>openTaskModal(t.id));
     enableTlBlockDrag(blk,blk.querySelector(".tb-resize"),t);
     blocks.appendChild(blk);
   });
-  /* 当前时间红线（仅今天且在范围内） */
-  if(ds===todayStr()&&now){
-    const m=new Date().getHours()*60+new Date().getMinutes();
-    if(m>=TL0&&m<=TL_END*60){now.hidden=false;now.style.top=((m-TL0)/60*TL_HOUR_H)+"px";}
+  /* 当前时间红线：每分钟自动跟随真实时间（仅今天且在范围内显示） */
+  if(now){
+    positionTlNow();
+    if(!window.__tlNowTimer){
+      window.__tlNowTimer=setInterval(()=>{ if(!$("#dayWrap")||!$("#dayWrap").hidden)positionTlNow(); },60000);
+    }
   }
+}
+/* 重定位当前时间红线（按真实时间，分钟级）；非今天则隐藏 */
+function positionTlNow(){
+  const now=$("#tlNow"); if(!now)return;
+  const ds=state.dayDate;
+  if(ds!==todayStr()){now.hidden=true;return;}
+  const m=new Date().getHours()*60+new Date().getMinutes();
+  if(m>=TL0&&m<=TL_END*60){now.hidden=false;now.style.top=((m-TL0)/60*TL_HOUR_H)+"px";}
+  else now.hidden=true;
 }
 /* 右栏：当日清单池——全部任务，已排程显示 ⏰，可拖拽到左轴排程；支持按清单分类切换 */
 function renderDayPool(){
@@ -1107,7 +1181,7 @@ function renderDayPool(){
     const row=document.createElement("div");
     row.className="dl-item"+(t.done?" done":"")+(t.abandoned?" abandon":"")+(t.time&&!t.allDay?" scheduled":"");
     row.style.borderLeftColor=colorOf(t);
-    const st=document.createElement("button");st.className="dl-st"+(t.done?" on":(t.abandoned?" x":""));
+    const st=document.createElement("span");st.className="dl-st";st.textContent=t.done?"☑️":(t.abandoned?"❌":"◻️");
     st.addEventListener("click",e=>{e.stopPropagation();toggleDone(t,!t.done);});
     const main=document.createElement("div");main.className="dl-main";
     const tt=document.createElement("div");tt.className="dl-title";tt.textContent=t.title;main.appendChild(tt);
@@ -2554,7 +2628,7 @@ function resetCleanState(){
       {id:l4,name:"学习",emoji:"📚",color:"#b8aeeb"},
     ],
     tasks:[],events:[],goals:{},
-    weekOffset:0,weekView:"simple",viewMode:"week",poolList:"all",splitLeft:null,
+    weekOffset:0,weekView:"simple",viewMode:"week",poolList:"all",splitLeft:null,daySplit:null,
     todoLayer:"inbox",todoSel:"inbox",
     reviewDim:"week",dayDate:todayStr(),monthOffset:0,
     habits:[],pomo:{focusMin:25,breakMin:5,noise:false,records:[]},
@@ -2679,7 +2753,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v15";
+  const SW_URL="sw.js?__v=jihua-v16";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -2714,6 +2788,7 @@ if(typeof INSPIRE_HOT5!=="undefined")INSPIRE_HOT5.forEach(p=>registerScheme(p.ke
 if(state.settings.scheme&&SCHEME_REGISTRY[state.settings.scheme])applyScheme(state.settings.scheme);
 applyAccent();
 initSplitter();
+initDaySplitter();
 switchTab(state.activeTab||"todo");
 if(toastLater)setTimeout(()=>toast(toastLater),600);
 window.addEventListener("resize",()=>{if(state.activeTab==="review")renderReview();});
