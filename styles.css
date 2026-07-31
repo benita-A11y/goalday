@@ -29,7 +29,7 @@ html,body{margin:0;padding:0;}
 /* 灵动岛/刘海沉浸式：背景=页面主背景，整屏铺满，禁止橡皮筋露出深色 */
 html{background:var(--bar);}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Segoe UI","Microsoft YaHei",sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Segoe UI","Microsoft YaHei","Apple Emoji Local","Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
   background:var(--bar);color:var(--ink);min-height:100vh;min-height:100dvh;
   -webkit-font-smoothing:antialiased;letter-spacing:-.1px;
   overscroll-behavior-y:contain;
@@ -39,6 +39,16 @@ body{
 button,input,select,textarea{font-family:inherit;color:var(--ink);}
 button{cursor:pointer;border:0;background:none;}
 h1,h3,h4{margin:0;}
+
+/* 苹果原生 Emoji：若用户把授权的苹果 Emoji 字体放到本目录 emoji-apple.woff2，则全平台显示苹果风；
+   文件缺失时此 @font-face 静默失败，自动回退到系统原生 Emoji（苹果设备本就是苹果风）。 */
+@font-face{
+  font-family:"Apple Emoji Local";
+  src:url("emoji-apple.woff2") format("woff2");
+  font-display:swap;
+  unicode-range:U+1F000-1FAFF,U+2600-27BF,U+1F1E6-1F1FF,U+2190-21FF,U+2300-23FF,U+2B00-2BFF,U+FE0F,U+200D,U+20E3,U+27C0-27E5,U+2300-23FF;
+}
+
 
 /* ═══ 页面框架 ═══ */
 .page{display:none;max-width:1080px;margin:0 auto;padding:0 0 calc(var(--tabbar-h) + 18px);}
@@ -324,7 +334,7 @@ body.view-full #fabView{transform:rotate(90deg);}
   position:absolute;left:8px;top:-7px;font-size:10.5px;color:var(--ink-3);font-weight:500;
   font-variant-numeric:tabular-nums;background:var(--bg);padding-right:4px;line-height:14px;
 }
-.tl24-blocks{position:absolute;top:0;bottom:0;left:52px;right:8px;}
+.tl24-blocks{position:absolute;top:0;bottom:0;left:58px;right:8px;}
 /* 任务块：莫兰迪圆角卡片 */
 .tl-block{
   position:absolute;left:0;right:0;border-radius:11px;padding:5px 10px 4px;overflow:hidden;
@@ -357,21 +367,21 @@ body.view-full #fabView{transform:rotate(90deg);}
 
 /* ═══ 单日清单（双栏时间轴）视图 ═══ */
 .dl-hint{font-size:11.5px;color:var(--ink-soft);padding:2px 14px 8px;line-height:1.5;}
-.dl-cols{display:flex;gap:12px;flex:1 1 auto;min-height:0;padding:0 12px 12px;align-items:stretch;}
-.dl-left{flex:1 1 70%;min-width:0;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
-.dl-left .tl-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 6px 10px;background:#F5F0EB;border-radius:0 0 14px 14px;}
+.dl-cols{display:flex;gap:0;flex:1 1 auto;min-height:0;padding:0 12px 12px;align-items:stretch;}
+.dl-left{flex:0 0 68%;min-width:0;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
+.dl-left .tl-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 6px 10px;background:var(--bg-soft);border-radius:0 0 14px 14px;}
+.dl-left .tl-scroll::-webkit-scrollbar,.dl-right .dl-pool::-webkit-scrollbar{width:4px;}
+.dl-left .tl-scroll::-webkit-scrollbar-thumb,.dl-right .dl-pool::-webkit-scrollbar-thumb{background:rgba(120,110,100,.35);border-radius:4px;}
+.dl-left .tl-scroll::-webkit-scrollbar-track,.dl-right .dl-pool::-webkit-scrollbar-track{background:transparent;}
 .dl-left-head,.dl-right-head{font-size:12.5px;font-weight:700;color:var(--ink);padding:10px 12px 6px;display:flex;align-items:center;gap:6px;}
 .dl-left-head .tl-range{font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-left:6px;}
-.dl-right{flex:1 1 30%;min-width:0;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
+.dl-right{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
 .dl-right-head{justify-content:space-between;}
 .dl-rh-ico{margin-right:auto;}
 .dl-sel{max-width:46%;font-size:12px;padding:3px 6px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);}
 .dl-pool{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 10px 10px;display:flex;flex-direction:column;gap:8px;}
 .dl-item{display:flex;align-items:flex-start;gap:8px;padding:10px 11px;border-radius:12px;background:var(--bg-soft);border:1px solid var(--line);}
-.dl-item .dl-st{flex:none;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--accent);background:transparent;cursor:pointer;position:relative;margin-top:1px;}
-.dl-item .dl-st.on{background:var(--accent);border-color:var(--accent);}
-.dl-item .dl-st.on::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;}
-.dl-item .dl-st.x{background:#bbb;border-color:#bbb;}
+.dl-item .dl-st{flex:none;font-size:16px;line-height:1.1;cursor:pointer;margin-top:1px;user-select:none;}
 .dl-item .dl-main{flex:1;min-width:0;}
 .dl-item .dl-title{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.4;word-break:break-word;display:block;}
 .dl-item .dl-time{display:inline-block;font-size:11px;color:var(--accent-deep,var(--accent));background:color-mix(in srgb,var(--accent) 14%,var(--bg));padding:1px 7px;border-radius:999px;margin-top:3px;}
@@ -380,7 +390,36 @@ body.view-full #fabView{transform:rotate(90deg);}
 .dl-item.done .dl-st{border-color:#9bbf9b;}
 .dl-item.abandon{opacity:.6;}
 .dl-item.abandon .dl-title{text-decoration:line-through;color:var(--ink-soft);}
+.dl-item.abandon .dl-st{opacity:.6;}
 .dl-item.dragging-source{opacity:.35;}
+
+/* 可拖拽分隔线：4px 宽，悬停/拖动显示双向箭头与主题色手柄 */
+.dl-divider{flex:0 0 4px;align-self:stretch;cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent;position:relative;touch-action:none;}
+.dl-divider::before{content:"";position:absolute;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--line);transition:background .15s,box-shadow .15s;}
+.dl-divider:hover::before,.dl-divider.active::before{background:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent);}
+.dl-divider span{position:absolute;width:3px;height:30px;border-radius:99px;background:transparent;transition:background .15s;}
+.dl-divider:hover span,.dl-divider.active span{background:var(--accent);}
+body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
+
+/* 顶部 7 天日期导航条：等宽不折行、不重叠，今天高亮 + 「今天」徽标，当前选中 */
+.day-nav{display:flex;align-items:stretch;gap:5px;flex:0 0 auto;padding:4px 12px 8px;}
+.dn-arrow{flex:0 0 auto;width:30px;border:1px solid var(--line);background:var(--bg);border-radius:10px;font-size:18px;color:var(--ink-soft);cursor:pointer;}
+.dn-arrow:active{background:var(--bg-soft);}
+.dn-days{flex:1 1 auto;display:flex;gap:4px;min-width:0;}
+.dn-day{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:6px 1px;border-radius:10px;border:1px solid transparent;background:var(--bg-soft);cursor:pointer;user-select:none;-webkit-user-select:none;overflow:hidden;}
+.dn-day .d-num{font-size:clamp(9.5px,2.6vw,12px);font-weight:600;color:var(--ink);white-space:nowrap;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.dn-day .d-wk{font-size:clamp(9px,2.2vw,10px);color:var(--ink-soft);white-space:nowrap;line-height:1.1;}
+.dn-day .d-today-badge{font-size:9px;color:#fff;background:var(--accent);border-radius:99px;padding:0 5px;line-height:14px;margin-top:1px;white-space:nowrap;}
+.dn-day.today{background:color-mix(in srgb,var(--accent) 15%,var(--bg));}
+.dn-day.today .d-wk{color:var(--accent-deep,var(--accent));font-weight:700;}
+.dn-day.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent);background:var(--bg);}
+.dn-day.sel .d-num{color:var(--accent-deep,var(--accent));}
+.day-toolbar{display:flex;align-items:center;gap:8px;}
+.day-toolbar .round-btn{font-size:18px;line-height:1;}
+@media (max-width:560px){
+  .dn-day .d-num{font-size:10px;}
+  .dn-day .d-wk{font-size:9px;}
+}
 
 /* ── 双栏时间轴内部（v22）：刻度 / 任务块 / 当前红线 / 空占位 ── */
 .tl24{position:relative;width:100%;}
@@ -388,8 +427,8 @@ body.view-full #fabView{transform:rotate(90deg);}
 .tl24-hours{z-index:1;pointer-events:none;}
 .tl24-blocks{z-index:2;pointer-events:none;}      /* 容器穿透，任务块本身接收事件 */
 .tl24-blocks .tb{pointer-events:auto;}
-.tl-hour{position:absolute;left:0;right:0;height:44px;border-top:1px dashed rgba(150,140,130,.22);display:flex;align-items:flex-start;gap:8px;padding:3px 8px;box-sizing:border-box;}
-.tl-h-t{font-size:11px;color:#B8AEAB;flex:none;width:42px;text-align:right;user-select:none;}
+.tl-hour{position:absolute;left:0;right:0;height:44px;border-top:1px solid #E8E4DE;display:flex;align-items:flex-start;gap:8px;padding:3px 8px;box-sizing:border-box;}
+.tl-h-t{font-size:11px;color:#B8AEAB;flex:none;width:50px;text-align:right;user-select:none;}
 .tl-h-empty{font-size:11px;color:#C8BFB8;border:1px dashed rgba(150,140,130,.28);border-radius:8px;flex:1 1 auto;height:calc(44px - 8px);display:flex;align-items:center;padding-left:8px;opacity:.7;}
 .tl-ghost{position:fixed;z-index:999;pointer-events:none;opacity:.92;box-shadow:0 8px 22px rgba(0,0,0,.22);border-radius:12px;background:var(--bg-soft);border:1px solid var(--line);padding:10px 11px;font-size:13.5px;font-weight:600;color:var(--ink);}
 /* 已排程任务块 */
@@ -398,9 +437,7 @@ body.view-full #fabView{transform:rotate(90deg);}
 .tb.tl-lift{box-shadow:0 8px 22px rgba(0,0,0,.22);transform:scale(1.02);z-index:5;cursor:grabbing;}
 .tb.done{opacity:.55;}
 .tb.done .tb-title{text-decoration:line-through;}
-.tb-st{flex:none;width:16px;height:16px;border-radius:5px;border:1.5px solid #fff;background:rgba(255,255,255,.55);cursor:pointer;position:absolute;top:5px;right:5px;padding:0;}
-.tb-st.on{background:#7bbf7b;border-color:#7bbf7b;}
-.tb-st.on::after{content:"✓";color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;height:100%;}
+.tb-st{flex:none;font-size:14px;line-height:1;cursor:pointer;position:absolute;top:4px;right:6px;padding:0;user-select:none;}
 .tb-body{flex:1;min-width:0;}
 .tb-title{font-size:12.5px;font-weight:600;color:#5a4f48;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tb-time{font-size:10.5px;color:#7a6f66;white-space:nowrap;}
