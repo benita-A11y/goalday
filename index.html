@@ -83,27 +83,19 @@
         <b id="dayTitle">今天</b>
         <button id="dayNext" class="round-btn">›</button>
         <button id="dayToday" class="mini-btn">今天</button>
-        <button id="tlAddBtn" class="mini-btn" title="新增时间块">＋时间块</button>
+        <button id="tlAddBtn" class="mini-btn" title="新增任务">＋ 任务</button>
         <button id="dayBackWeek" class="mini-btn" title="返回周视图">📅 周视图</button>
       </div>
-      <div class="dl-hint">💡 把右侧任务长按拖到左侧时间轴安排时段 · 长按时间轴任务可拖动改时段</div>
-      <div class="dl-cols">
-        <div class="dl-left" id="dlLeft">
-          <div class="dl-left-head">🕐 时间轴</div>
-          <div class="tl-scroll" id="tlScroll">
-            <div class="tl24" id="tl24">
-              <div class="tl24-hours" id="tl24Hours"></div>
-              <div class="tl24-blocks" id="tl24Blocks"></div>
-            </div>
-          </div>
+      <div class="dl-one">
+        <div class="dl-one-head">
+          <div class="dl-oh-date" id="dlHeadDate">今天</div>
+          <div class="dl-oh-stat" id="dlHeadStat">共 0 项</div>
         </div>
-        <div class="dl-right" id="dlRight">
-          <div class="dl-right-head">
-            <span class="dl-rh-ico">📋</span>
-            <span id="dlPoolTitle">今日清单</span>
-            <select id="dlListSel" class="dl-sel" title="切换清单"></select>
-          </div>
-          <div class="dl-pool" id="dlPool"></div>
+        <div class="dl-one-list" id="dlPool"></div>
+        <div class="dl-one-empty" id="dlEmpty" hidden>
+          <div class="de-emoji">🫧</div>
+          <div class="de-title">今天还没有任务</div>
+          <div class="de-sub">点上方「＋ 任务」新建，或回周计划拖一个过来</div>
         </div>
       </div>
     </div>
@@ -137,9 +129,13 @@
 <div class="day-detail-mask" id="dayDetailMask" hidden>
   <div class="day-detail-sheet" id="dayDetailSheet">
     <div class="dds-head">
-      <button class="dds-back" id="ddsBack">‹ 返回周视图</button>
-      <div class="dds-pagetitle">📋 日清单</div>
-      <div class="dds-date" id="ddsDate"></div>
+      <button class="dds-nav" id="ddsPrev" title="前一天">‹ 昨天</button>
+      <div class="dds-titles">
+        <div class="dds-pagetitle">📋 日清单</div>
+        <div class="dds-date" id="ddsDate"></div>
+      </div>
+      <button class="dds-nav" id="ddsNext" title="后一天">明天 ›</button>
+      <button class="dds-close" id="ddsClose" title="关闭">✕</button>
     </div>
     <div class="dds-stat" id="ddsStat"></div>
     <div class="dds-list" id="ddsList"></div>
@@ -292,7 +288,7 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">计划册 v18 · 周视图单日滚动条(≥2任务) × 单日清单双栏时间轴(左时间轴/右清单池·拖拽排程) × 复盘骨架屏+缓存秒开 × 打卡分类联动<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
+      <p class="set-note">计划册 v21 · 周视图单日任务列表平铺整格(滚动条贴右边缘) × 日清单便签弹窗(右滑入·勾选同步) × 全量持久化/云同步持续在线<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🗂️ 数据管理</h3>
@@ -300,7 +296,7 @@
         <span class="cd-t">🗑️ 清空当前数据</span>
         <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
       </button>
-      <div class="app-ver">计划册 v18 · 莫兰迪 / 马卡龙奶油风</div>
+      <div class="app-ver">计划册 v21 · 莫兰迪 / 马卡龙奶油风</div>
     </div>
   </div>
 </section>
@@ -428,9 +424,14 @@
 
     <!-- 云同步 -->
     <div class="panel">
-      <h3 class="ptt">☁️ 云同步</h3>
-      <p class="set-note">收藏与配色通过你的账号云同步（需配置后端 API）。未配置时仅保存在本机，离线可用。</p>
-      <button class="set-btn" id="paletteSync">🔄 同步到云端</button>
+      <h3 class="ptt">☁️ 云同步（全量数据）</h3>
+      <p class="set-note">全部 12 类数据（灵感/待分类/清单/周计划/日清单/打卡/专注/复盘/调色盘/主题/治愈系/设置）通过你自己的后端 API 同步。未配置时仅保存在本机（localStorage + IndexedDB 双备份），离线可用、关闭不丢。</p>
+      <label class="set-label" for="syncBackend">后端地址</label>
+      <input id="syncBackend" class="set-input" placeholder="https://your.api/goalday" autocomplete="off" spellcheck="false" />
+      <label class="set-label" for="syncUser">账号（手机号，可选）</label>
+      <input id="syncUser" class="set-input" placeholder="用于区分多账号，可留空" autocomplete="off" />
+      <div id="syncStatus" class="set-note">未配置后端 · 仅本机双备份</div>
+      <button class="set-btn" id="paletteSync">🔄 立即同步全部数据到云端</button>
     </div>
   </div>
 
@@ -456,5 +457,6 @@
 <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
 <script src="app.js"></script>
 <script src="plus.js"></script>
+<script src="sync.js"></script>
 </body>
 </html>
