@@ -56,7 +56,10 @@ h1,h3,h4{margin:0;}
 /* 手机全屏：顶部从状态栏下方开始铺满（刘海安全区），背景=页面主背景 */
 .page-head{display:flex;align-items:center;gap:10px;padding:calc(14px + env(safe-area-inset-top)) 16px 12px;background:var(--bar);}
 .page-head h1{font-size:20px;font-weight:700;letter-spacing:-.2px;flex:1;}
+.page-head.center{position:relative;}
 .page-head.center h1{text-align:center;}
+.rev-refresh{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:transparent;font-size:21px;line-height:1;color:var(--ink-soft);cursor:pointer;padding:4px 6px;border-radius:8px;}
+.rev-refresh:active{background:var(--bg-soft);}
 .icon-btn{font-size:18px;padding:5px 9px;border-radius:8px;color:var(--ink);}
 .icon-btn:active{background:var(--bg-soft);}
 .mode-toggle{font-size:13px;color:var(--ink);background:var(--bg-soft);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-weight:500;}
@@ -521,6 +524,7 @@ canvas{width:100%;display:block;}
 .set-btn{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:13px;font-size:14.5px;text-align:left;color:var(--ink);font-weight:500;width:100%;}
 .set-btn:active{background:var(--bg-soft);}
 .set-btn.pick-row{display:flex;align-items:center;gap:9px;}
+.set-btn.pick-row .pick-cnt{margin-left:auto;font-size:12px;color:var(--ink-3);background:var(--bg-soft);border-radius:10px;padding:2px 9px;font-variant-numeric:tabular-nums;}
 /* ═══ 待办·收集箱首页卡片 ═══ */
 .home-card{
   display:flex;align-items:center;gap:12px;width:100%;text-align:left;
@@ -850,6 +854,10 @@ img.emoji{height:1.15em;width:1.15em;vertical-align:-.18em;margin:0 .02em;}
 .insp-add .ib-bullet{color:var(--ink-3);}
 .insp-add-input{flex:1;border:0;background:transparent;font-size:15px;outline:none;color:var(--ink);}
 .insp-add-input::placeholder{color:var(--ink-3);}
+/* 灵感收集箱底部交互指引 + 今日计数 */
+.insp-hint{display:flex;flex-direction:column;gap:6px;padding:14px 14px 20px;font-size:12.5px;color:var(--ink-3);line-height:1.5;}
+.insp-hint .ih-swipe{font-weight:600;color:var(--ink-soft);}
+.insp-hint .ih-stat{opacity:.85;}
 
 /* 待分类 / 回收站 提示条 */
 .triage-info{margin:10px 14px;padding:9px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent) 10%,var(--bg));color:var(--ink-soft);font-size:12.5px;}
@@ -1259,13 +1267,7 @@ body.no-scroll{overflow:hidden;}
 .dds-empty .de-sub{font-size:12.5px;}
 .dd-row{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:.5px solid rgba(90,80,70,.12);position:relative;}
 .dd-row.ev{opacity:.85;}
-.dd-st{flex:none;width:20px;height:20px;border-radius:50%;border:1.7px solid var(--ink-3);background:#fff;cursor:pointer;position:relative;transition:.15s;}
-.dd-st.on{background:var(--accent);border-color:var(--accent);}
-.dd-st.on::after{content:"";position:absolute;left:6px;top:2.5px;width:5px;height:9px;border:2px solid #fff;border-top:0;border-left:0;transform:rotate(42deg);}
-.dd-st.x{background:#fff;border-color:var(--red);}
-.dd-st.x::before,.dd-st.x::after{content:"";position:absolute;left:9px;top:3px;width:2px;height:12px;background:var(--red);}
-.dd-st.x::before{transform:rotate(45deg);}
-.dd-st.x::after{transform:rotate(-45deg);}
+.dd-st{flex:none;width:24px;height:24px;border:0;background:transparent;cursor:pointer;font-size:19px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}
 .dd-ico{flex:none;font-size:15px;}
 .dd-main{flex:1;min-width:0;cursor:pointer;}
 .dd-title{font-size:15px;font-weight:500;color:var(--ink);word-break:break-word;}
