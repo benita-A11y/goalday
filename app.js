@@ -697,10 +697,19 @@ function renderWeek(){
     items.forEach(it=>chips.appendChild(it.type==="ics"?icsChip(it.data):weekChip(it.data)));
     cell.appendChild(chips);grid.appendChild(cell);
     const dh=cell.querySelector(".day-head");
-    if(dh){dh.title="双击查看当日全部任务";dh.addEventListener("dblclick",e=>{e.preventDefault();dayListDate=fmtDate(dates[i]);renderDayListCard();openDayDetail(i);});}
-    /* 滚动条触发：任务内容超出单元格可视区域即出现滚动条 */
+    if(dh){dh.title="双击进入当日清单（双栏时间轴）";dh.addEventListener("dblclick",e=>{e.preventDefault();openDayPage(fmtDate(dates[i]));});}
+    /* 滚动条触发（修改点一）：当天任务 ≥2 条 或 内容超出 → 出现滚动条；≥3 条强制滚动（预留空间）。日期标题固定，仅任务区滚动 */
     const ch=cell.querySelector(".chips");
-    if(ch)cell.classList.toggle("has-scroll",ch.scrollHeight>ch.clientHeight);
+    if(ch){
+      const n=items.length;
+      const overflow=ch.scrollHeight>ch.clientHeight;
+      const on=n>=2||overflow;
+      cell.classList.toggle("has-scroll",on);
+      if(on){
+        const h=ch.firstElementChild?ch.firstElementChild.offsetHeight:38;
+        ch.style.setProperty("--cap",Math.round(h*1.6)+"px"); /* 仅露约 1.5 条，多余任务进入滚动 */
+      }else ch.style.removeProperty("--cap");
+    }
   });
   renderPool();
   renderDayListCard();
@@ -861,21 +870,25 @@ function renderDayListCard(){
   const d=new Date(dayListDate+"T00:00");
   const wk=DAY_NAMES[(d.getDay()+6)%7];
   card.innerHTML=`<div class="dlc-ico">📋</div><div class="dlc-main"><div class="dlc-title">日清单</div><div class="dlc-sub">${d.getMonth()+1}月${d.getDate()}日 ${wk} · 共 ${items.length} 项 ｜ 点击查看全部 →</div></div>`;
-  card.onclick=()=>openDayList();
+  card.onclick=()=>openDayPage(dayListDate);
 }
-function openDayList(){
+/* 打开「单日清单」双栏页面：确保该日期落在当前周，并切换到日程视图 */
+function openDayPage(ds){
+  state.dayDate=ds;
   const dates=weekDates(state.weekOffset);
-  let idx=dates.findIndex(d=>fmtDate(d)===dayListDate);
-  if(idx<0){
-    const t=new Date(dayListDate+"T00:00");
+  if(!dates.some(d=>fmtDate(d)===ds)){
+    const t=new Date(ds+"T00:00");
     const base=new Date();base.setHours(0,0,0,0);base.setDate(base.getDate()-((base.getDay()+6)%7));
     const tm=new Date(t);tm.setHours(0,0,0,0);tm.setDate(tm.getDate()-((tm.getDay()+6)%7));
     state.weekOffset=Math.round((tm-base)/(7*864e5));
-    renderWeek();
-    const nd=weekDates(state.weekOffset);
-    idx=nd.findIndex(d=>fmtDate(d)===dayListDate);
   }
-  if(idx>=0){dayDetailIdx=idx;openDayDetail(idx);}
+  state.viewMode="day";
+  if(state.activeTab!=="todo"){switchTab("todo");}
+  renderView();save();
+}
+function openDayList(){
+  /* 兼容旧引用：直接打开当日清单页面 */
+  openDayPage(dayListDate);
 }
 function renderDayDetail(){
   const dates=weekDates(state.weekOffset);
@@ -948,14 +961,18 @@ $("#dayDetailMask").addEventListener("click",e=>{if(e.target.id==="dayDetailMask
 $("#ddsAdd").addEventListener("click",()=>{const ds=fmtDate(weekDates(state.weekOffset)[dayDetailIdx]);openTaskModal(null,{due:ds});});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dayDetailOpen)closeDayDetail();});
 
-/* ── 日程（24 小时时间轴）视图 v16 ──
+/* ── 日程（双栏时间轴）视图 v18 ──
    与周计划任务完全同源（state.tasks）：改一处两边同步。
-   非强制使用，允许大量留白；块可拖动改开始时间、下拉手柄改时长。 */
-const TL_HOUR_H=54, TL_SNAP=30; /* 每小时像素高 · 吸附分钟 */
+   左侧时间轴（默认 08:00–22:00，每小时一行）；右侧当日清单池（全部任务，已排程显示⏰）。
+   长按右侧任务拖到左侧时间轴 → 排程到该时段；长按时间轴任务拖回右侧 → 取消排程；拖动改时段。 */
+const TL_HOUR_H=44, TL_SNAP=30;            /* 每小时像素高 · 吸附分钟 */
+const TL_START=8, TL_END=22, TL0=TL_START*60; /* 时间轴起止（可自定义），TL0=起点分钟 */
 let tlMoved=false;               /* 拖动后抑制 click 误触 */
-$("#dayPrev").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,-1);renderDay();save();});
 $("#dayNext").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,1);renderDay();save();});
 $("#dayToday").addEventListener("click",()=>{state.dayDate=todayStr();renderDay();save();});
+$("#dayBack").addEventListener("click",()=>{state.viewMode="week";renderView();save();});
+$("#dayBackWeek").addEventListener("click",()=>{state.viewMode="week";renderView();save();});
+$("#dlListSel").addEventListener("change",e=>{state.poolList=e.target.value;renderDayPool();save();});
 $("#tlAddBtn").addEventListener("click",()=>openTaskModal(null,{due:state.dayDate,time:"09:00"}));
 function hm2min(s){if(!s)return null;const m=/^(\d{1,2}):(\d{2})/.exec(String(s));return m?(+m[1])*60+(+m[2]):null;}
 function min2hm(m){m=Math.max(0,Math.min(1439,Math.round(m)));return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
@@ -965,41 +982,27 @@ function renderDay(){
   const d=new Date(ds+"T00:00");
   $("#dayTitle").textContent=`${d.getMonth()+1}月${d.getDate()}日 ${DAY_NAMES[(d.getDay()+6)%7]}`+(ds===todayStr()?" · 今天":"");
   const items=dayItems(ds);
-  /* 顶部托盘：当日尚未安排时间的任务（同源于周视图当日清单），长按拖到时间轴分配时段 */
-  const tray=items.filter(i=>i.type==="task"&&!i.data.abandoned&&(!i.data.time||i.data.allDay));
-  const trayBox=$("#tlTrayList");trayBox.innerHTML="";
-  $("#tlTray").hidden=!tray.length;
-  tray.forEach(i=>{
-    const t=i.data;
-    const c=document.createElement("div");
-    c.className="tl-tray-chip"+(t.done?" done":"");
-    c.style.setProperty("--dot",colorOf(t));
-    c.innerHTML=`<span class="dd"></span><span class="t">${esc(t.title)}</span>`;
-    c.addEventListener("click",()=>{if(!tlMoved)openTaskModal(t.id);});
-    enableTlTrayDrag(c,t.id);
-    trayBox.appendChild(c);
-  });
-  /* 0–24 点小时刻度（只构建一次） */
+  /* 左：时间轴小时刻度（只构建一次，TL_START–TL_END） */
   const hoursBox=$("#tl24Hours");
   if(!hoursBox.childElementCount){
-    for(let h=0;h<=24;h++){
+    for(let h=TL_START;h<=TL_END;h++){
       const row=document.createElement("div");
       row.className="tl-hr";
-      row.style.top=(h*TL_HOUR_H)+"px";
+      row.style.top=((h-TL_START)*TL_HOUR_H)+"px";
       row.innerHTML=`<span class="hlab">${String(h).padStart(2,"0")}:00</span>`;
       hoursBox.appendChild(row);
     }
   }
-  $("#tl24").style.height=(24*TL_HOUR_H)+"px";
-  /* 有时间的任务/事件 → 绝对定位块 */
+  $("#tl24").style.height=((TL_END-TL_START+1)*TL_HOUR_H)+"px";
+  /* 有时间的任务/事件 → 绝对定位块（相对 TL0 偏移） */
   const box=$("#tl24Blocks");box.innerHTML="";
   const timed=items.filter(i=>i.type==="ics"?hm2min(i.data.time)!=null:(!i.data.allDay&&!i.data.abandoned&&hm2min(i.data.time)!=null));
   timed.forEach(i=>{
     const t=i.data,start=hm2min(t.time),dur=i.type==="ics"?60:tlDur(t);
     const el=document.createElement("div");
     el.className="tl-block"+(i.type==="ics"?" ics":"")+(t.done?" done":"");
-    el.style.top=(start/60*TL_HOUR_H)+"px";
-    el.style.height=Math.max(30,dur/60*TL_HOUR_H-3)+"px";
+    el.style.top=((start-TL0)/60*TL_HOUR_H)+"px";
+    el.style.height=Math.max(28,dur/60*TL_HOUR_H-3)+"px";
     if(i.type!=="ics")el.style.setProperty("--bc",colorOf(t));
     el.innerHTML=`<div class="tb-t">${i.type==="ics"?"📅 ":""}${esc(t.title)}</div><div class="tb-time">${esc(t.time)}${i.type!=="ics"?" – "+min2hm(start+dur):""}</div>`;
     if(i.type!=="ics"){
@@ -1012,26 +1015,64 @@ function renderDay(){
   });
   /* 今天：当前时间指示线 + 首次进入滚到当前时段附近 */
   if(ds===todayStr()){
-    const now=new Date(),line=document.createElement("div");
-    line.className="tl-now";
-    line.style.top=((now.getHours()*60+now.getMinutes())/60*TL_HOUR_H)+"px";
-    box.appendChild(line);
+    const now=new Date(),cur=now.getHours()*60+now.getMinutes();
+    if(cur>=TL0&&cur<=(TL_END*60)){
+      const line=document.createElement("div");
+      line.className="tl-now";
+      line.style.top=((cur-TL0)/60*TL_HOUR_H)+"px";
+      box.appendChild(line);
+    }
     if(!renderDay._scrolled){
       renderDay._scrolled=true;
       requestAnimationFrame(()=>{
-        const y=Math.max(0,(now.getHours()-2)*TL_HOUR_H);
+        const y=Math.max(0,Math.min((TL_END-TL_START)*TL_HOUR_H,(now.getHours()*60+now.getMinutes()-TL0-2*60)/60*TL_HOUR_H));
         const sc=$("#tlScroll");
         if(sc&&sc.scrollHeight>sc.clientHeight+10)sc.scrollTop=y;
-        else window.scrollTo(0,Math.max(0,$("#tl24").getBoundingClientRect().top+window.scrollY+y-160));
       });
     }
   }
+  /* 右：当日清单池（含已排程⏰；可切换清单分类） */
+  renderDayPool();
+}
+/* 右侧当日清单池：显示当天全部任务；已排程显示 ⏰；长按拖到左侧时间轴排程 */
+function renderDayPool(){
+  const ds=state.dayDate;
+  const box=$("#dlPool");if(!box)return;
+  const all=dayItems(ds).filter(i=>i.type==="task");
+  const list=state.poolList==="all"?all:all.filter(i=>i.data.listId===state.poolList);
+  const total=all.length;
+  $("#dlPoolTitle").textContent=`今日清单 · ${total} 项`;
+  /* 分类下拉（与周视图右侧一致） */
+  const sel=$("#dlListSel");
+  if(sel){
+    const opts=[{id:"all",name:"全部清单"}].concat(state.lists.map(l=>({id:l.id,name:l.emoji+" "+l.name})));
+    sel.innerHTML=opts.map(o=>`<option value="${o.id}">${esc(o.name)}</option>`).join("");
+    sel.value=state.poolList;
+  }
+  box.innerHTML="";
+  if(!list.length){box.innerHTML=`<div class="empty-tip">今天这个清单还没有任务<br>去周计划右侧拖一个进来吧 🫧</div>`;return;}
+  list.forEach(i=>{
+    const t=i.data;
+    const c=document.createElement("div");
+    c.className="dl-item"+(t.done?" done":"")+(t.abandoned?" abandon":"")+(t.time&&!t.allDay?" scheduled":"");
+    c.style.setProperty("--dot",colorOf(t));
+    const st=document.createElement("button");st.className="dl-st"+(t.done?" on":(t.abandoned?" x":""));
+    st.setAttribute("aria-label",t.abandoned?"已放弃":(t.done?"已完成":"未完成"));
+    st.addEventListener("click",e=>{e.stopPropagation();if(!t.abandoned)toggleDone(t,!t.done);});
+    const main=document.createElement("div");main.className="dl-main";
+    main.innerHTML=`<span class="dl-title">${esc(t.title)}</span>`+(t.time&&!t.allDay?`<span class="dl-time">⏰ ${esc(t.time)}</span>`:"");
+    main.addEventListener("click",()=>{if(!tlMoved)openTaskModal(t.id);});
+    c.appendChild(st);c.appendChild(main);
+    enableTlTrayDrag(c,t.id); /* 长按拖到左侧时间轴排程 */
+    box.appendChild(c);
+  });
 }
 /* 点击时间轴空白处 → 在对应时段快速新建时间块任务 */
 $("#tl24Blocks").addEventListener("click",e=>{
   if(e.target!==e.currentTarget||tlMoved)return;
   const r=e.currentTarget.getBoundingClientRect();
-  const min=Math.floor(((e.clientY-r.top)/TL_HOUR_H*60)/TL_SNAP)*TL_SNAP;
+  let min=TL0+Math.floor(((e.clientY-r.top)/TL_HOUR_H*60)/TL_SNAP)*TL_SNAP;
+  min=Math.max(TL0,Math.min(TL_END*60,min));
   openTaskModal(null,{due:state.dayDate,time:min2hm(min)});
 });
 /* 时间轴任务块：整块拖动改开始时间（保持时长）· 底部手柄拖动改时长 */
@@ -1043,6 +1084,7 @@ function enableTlBlockDrag(el,handle,t){
       const isTouch=!!e.touches;
       const p0=isTouch?e.touches[0]:e;
       const y0=p0.clientY;
+      let lx=p0.clientX,ly=p0.clientY;
       const s0=hm2min(t.time)||0,d0=tlDur(t);
       let active=(mode==="resize"),timer=null;
       tlMoved=false;
@@ -1051,6 +1093,7 @@ function enableTlBlockDrag(el,handle,t){
       if(mode==="resize"&&e.cancelable)e.preventDefault();
       const move=ev=>{
         const p=ev.touches?ev.touches[0]:ev;
+        lx=p.clientX;ly=p.clientY;
         const dy=p.clientY-y0;
         if(!active){
           if(isTouch){if(Math.abs(dy)>12){cleanup();return;}return;}
@@ -1060,8 +1103,8 @@ function enableTlBlockDrag(el,handle,t){
         tlMoved=true;
         const dmin=Math.round(dy/TL_HOUR_H*60/TL_SNAP)*TL_SNAP;
         if(mode==="move"){
-          const ns=Math.max(0,Math.min(1440-d0,s0+dmin));
-          el.style.top=(ns/60*TL_HOUR_H)+"px";el.dataset.ns=ns;
+          const ns=Math.max(TL0,Math.min(TL_END*60-d0,s0+dmin));
+          el.style.top=((ns-TL0)/60*TL_HOUR_H)+"px";el.dataset.ns=ns;
         }else{
           const nd=Math.max(TL_SNAP,Math.min(1440-s0,d0+dmin));
           el.style.height=Math.max(30,nd/60*TL_HOUR_H-3)+"px";el.dataset.nd=nd;
@@ -1072,13 +1115,20 @@ function enableTlBlockDrag(el,handle,t){
       };
       const up=()=>{
         clearTimeout(timer);unbind();el.classList.remove("tl-lift");
-        if(tlMoved){
-          const ns=el.dataset.ns!=null?+el.dataset.ns:s0,nd=el.dataset.nd!=null?+el.dataset.nd:d0;
-          t.time=min2hm(ns);t.timeEnd=min2hm(ns+nd);t.allDay=false;
-          save();renderDay();
-          toast("⏰ "+t.time+" – "+t.timeEnd);
-          setTimeout(()=>{tlMoved=false;},60);
+        if(!tlMoved)return;
+        if(mode==="move"){
+          /* 拖回右侧清单池 → 取消时段安排（拉回清单） */
+          let overPool=false;
+          try{const el2=document.elementFromPoint(lx,ly);if(el2&&el2.closest&&el2.closest("#dlPool"))overPool=true;}catch(e){}
+          if(overPool){
+            t.time=null;t.timeEnd=null;t.allDay=false;save();renderDay();toast("↩ 已取消排程");setTimeout(()=>{tlMoved=false;},60);return;
+          }
         }
+        const ns=el.dataset.ns!=null?+el.dataset.ns:s0,nd=el.dataset.nd!=null?+el.dataset.nd:d0;
+        t.time=min2hm(ns);t.timeEnd=min2hm(ns+nd);t.allDay=false;
+        save();renderDay();
+        toast("⏰ "+t.time+" – "+t.timeEnd);
+        setTimeout(()=>{tlMoved=false;},60);
       };
       const cleanup=()=>{clearTimeout(timer);unbind();el.classList.remove("tl-lift");};
       const unbind=()=>{
@@ -1119,9 +1169,10 @@ function enableTlTrayDrag(el,taskId){
       const r=$("#tl24Blocks").getBoundingClientRect();
       let hint=document.getElementById("tlDropHint");
       if(y>=r.top&&y<=r.bottom){
-        const min=Math.max(0,Math.floor(((y-r.top)/TL_HOUR_H*60)/TL_SNAP)*TL_SNAP);
+        let min=TL0+Math.floor(((y-r.top)/TL_HOUR_H*60)/TL_SNAP)*TL_SNAP;
+        min=Math.max(TL0,Math.min(TL_END*60,min));
         if(!hint){hint=document.createElement("div");hint.id="tlDropHint";$("#tl24Blocks").appendChild(hint);}
-        hint.style.top=(min/60*TL_HOUR_H)+"px";
+        hint.style.top=((min-TL0)/60*TL_HOUR_H)+"px";
         hint.dataset.min=min;
         hint.textContent=min2hm(min);
       }else if(hint)hint.remove();
@@ -2103,6 +2154,26 @@ function renderReview(){
   $$("#revDims button").forEach(b=>b.classList.toggle("active",b.dataset.d===state.reviewDim));
   const {dates,label,isDay,isYear}=revRange();
   $("#revRangeLabel").textContent=label;
+  const sig=cacheSig(dates);
+  const cacheKey="review:"+state.reviewDim;
+  /* 1) 优先读本地缓存：0 延迟即时呈现（与源数据一致时直接展示） */
+  const cached=loadReviewCache(cacheKey);
+  if(cached&&cached.sig===sig){
+    $("#revSummary").innerHTML=cached.summaryHTML;
+  }
+  /* 2) 骨架屏：浅灰呼吸块，待数据就绪后渐现 */
+  const dataView=$("#dataView");
+  dataView.classList.add("loading");
+  /* 3) 后台异步重算（始终从 state 同源计算，保证准确），再淡入替换 */
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    paintReview(dates,isDay,isYear,sig);
+    dataView.classList.remove("loading");
+    ["#revDonut","#revLine","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
+  }));
+}
+/* 复盘数据始终从 state 同源计算 → 与周视图/打卡/专注三方一致 */
+function paintReview(dates,isDay,isYear,sig){
+  const cacheKey="review:"+state.reviewDim;
   const inRange=ds=>ds&&(isYear?dates.includes(ds.slice(0,7)):dates.includes(ds));
   const planned=state.tasks.filter(t=>!t.abandoned&&inRange(t.due));
   const doneT=planned.filter(t=>t.done);
@@ -2132,8 +2203,19 @@ function renderReview(){
   buildPraise({planned,doneT,rate,focusMin,habitDays,prevRate,dates,isYear,isDay});
   buildImprove({planned,doneT,rate,focusMin,habitDays,dates,isYear,isDay});
   renderRevCal();
+  saveReviewCache(cacheKey,{sig,summaryHTML:$("#revSummary").innerHTML});
   save();
 }
+/* 复盘缓存签名：数据变化即失效，确保准确性 */
+function cacheSig(dates){
+  let s=0;
+  state.tasks.forEach(t=>{if(!t.abandoned&&dates.indexOf(t.due)>=0)s+=(t.done?2:1);});
+  state.habits.forEach(h=>dates.forEach(d=>{if(h.checks[d])s++;}));
+  state.pomo.records.forEach(r=>{if(dates.indexOf(r.date)>=0)s+=r.minutes;});
+  return s;
+}
+function loadReviewCache(k){try{const v=JSON.parse(localStorage.getItem("goalday-review")||"{}");return v[k]||null;}catch(e){return null;}}
+function saveReviewCache(k,obj){try{const v=JSON.parse(localStorage.getItem("goalday-review")||"{}");v[k]=obj;localStorage.setItem("goalday-review",JSON.stringify(v));}catch(e){}}
 function buildPraise(o){
   const msgs=[];
   if(o.prevRate!=null&&o.rate>o.prevRate)msgs.push(`完成率比上一周期提升了 <b>${o.rate-o.prevRate}%</b>，稳步推进 🌿`);
@@ -2550,7 +2632,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v10";
+  const SW_URL="sw.js?__v=jihua-v11";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
