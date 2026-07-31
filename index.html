@@ -79,20 +79,31 @@
     </div>
     <div class="vwrap" id="dayWrap" hidden>
       <div class="sub-head">
-        <button id="dayPrev" class="round-btn">‹</button>
+        <button id="dayBack" class="round-btn" title="返回周视图">‹</button>
         <b id="dayTitle">今天</b>
         <button id="dayNext" class="round-btn">›</button>
         <button id="dayToday" class="mini-btn">今天</button>
         <button id="tlAddBtn" class="mini-btn" title="新增时间块">＋时间块</button>
+        <button id="dayBackWeek" class="mini-btn" title="返回周视图">📅 周视图</button>
       </div>
-      <div class="tl-tray" id="tlTray" hidden>
-        <div class="tl-tray-tt">🌤️ 当日清单（长按拖到时间轴安排时段）</div>
-        <div class="tl-tray-list" id="tlTrayList"></div>
-      </div>
-      <div class="tl-scroll" id="tlScroll">
-        <div class="tl24" id="tl24">
-          <div class="tl24-hours" id="tl24Hours"></div>
-          <div class="tl24-blocks" id="tl24Blocks"></div>
+      <div class="dl-hint">💡 把右侧任务长按拖到左侧时间轴安排时段 · 长按时间轴任务可拖动改时段</div>
+      <div class="dl-cols">
+        <div class="dl-left" id="dlLeft">
+          <div class="dl-left-head">🕐 时间轴</div>
+          <div class="tl-scroll" id="tlScroll">
+            <div class="tl24" id="tl24">
+              <div class="tl24-hours" id="tl24Hours"></div>
+              <div class="tl24-blocks" id="tl24Blocks"></div>
+            </div>
+          </div>
+        </div>
+        <div class="dl-right" id="dlRight">
+          <div class="dl-right-head">
+            <span class="dl-rh-ico">📋</span>
+            <span id="dlPoolTitle">今日清单</span>
+            <select id="dlListSel" class="dl-sel" title="切换清单"></select>
+          </div>
+          <div class="dl-pool" id="dlPool"></div>
         </div>
       </div>
     </div>
@@ -281,7 +292,7 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">计划册 v17 · 配色日记每日一条可编辑（名称/心情/关键词/应用范围·月历色点点选展开）× 调色盘一键应用真正全局换肤（导航/Tab/按钮/热力图/图表联动·0.5s 平滑过渡）× 打卡习惯长按拖动排序 + 整理模式（隐藏/归档）× 打卡分类视图与清单分类双向联动 × 灵感收集箱键盘交互<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
+      <p class="set-note">计划册 v18 · 周视图单日滚动条(≥2任务) × 单日清单双栏时间轴(左时间轴/右清单池·拖拽排程) × 复盘骨架屏+缓存秒开 × 打卡分类联动<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🗂️ 数据管理</h3>
@@ -289,7 +300,7 @@
         <span class="cd-t">🗑️ 清空当前数据</span>
         <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
       </button>
-      <div class="app-ver">计划册 v17 · 莫兰迪 / 马卡龙奶油风</div>
+      <div class="app-ver">计划册 v18 · 莫兰迪 / 马卡龙奶油风</div>
     </div>
   </div>
 </section>
