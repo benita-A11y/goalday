@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 17;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 18;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -267,14 +267,10 @@ function focusInspRow(id){
 }
 function showKbBar(){const b=$("#kbBar");if(b)b.hidden=false;}
 function hideKbBar(){const b=$("#kbBar");if(b)b.hidden=true;}
-/* ↓ 下箭头：有下一条则跳转，否则在当前条目下方新建圆点 */
+/* ↓ 下箭头：始终新增一条空白灵感输入项（聚焦到新行） */
 function inspArrowDown(){
   if(!activeInspId)return;
-  const rows=[...document.querySelectorAll('#todoBody .insp-row')];
-  const idx=rows.findIndex(r=>r.dataset.id===activeInspId);
-  if(idx<0)return;
-  if(idx<rows.length-1){focusInspRow(rows[idx+1].dataset.id);}
-  else{pendingFocusId=addInspAt("",activeInspId);}
+  pendingFocusId=addInspAt("",activeInspId);
 }
 /* ↑ 上箭头：跳转到上一条圆点 */
 function inspArrowUp(){
@@ -439,7 +435,7 @@ function renderInbox(){
   /* 底部交互指引 + 今日已记录条数 */
   const hint=document.createElement("div");hint.className="insp-hint";
   const todayN=state.inspirations.filter(n=>n.createdAt&&new Date(n.createdAt).toDateString()===new Date().toDateString()).length;
-  hint.innerHTML=`<span class="ih-swipe">💡 左滑 → 归类到清单　｜　右滑 → 暂存待分类</span><span class="ih-stat">📊 今日已记录 ${todayN} 条灵感</span>`;
+  hint.innerHTML=`<span class="ih-swipe">💡 左滑 → 归类到清单</span><span class="ih-stat">📊 今日已记录 ${todayN} 条灵感</span>`;
   body.appendChild(hint);
   renderInspSelBar();
   applyEmoji();
@@ -460,10 +456,16 @@ function inspRow(n){
   bullet.addEventListener("pointerup",e=>{e.stopPropagation();if(bt){clearTimeout(bt);bt=null;onInspBullet(n.id);}});
   bullet.addEventListener("pointerleave",()=>{if(bt){clearTimeout(bt);bt=null;}});
   bullet.addEventListener("contextmenu",e=>{e.preventDefault();enterInspSel(n.id);});
-  const txt=document.createElement("div");txt.className="ib-text";txt.contentEditable="true";txt.textContent=n.text;
-  txt.addEventListener("input",()=>{n.text=txt.textContent;save();});
-  txt.addEventListener("focus",()=>{row.classList.add("focus");activeInspId=n.id;showKbBar();});
-  txt.addEventListener("blur",()=>{row.classList.remove("focus");setTimeout(()=>{const a=document.activeElement;if(!a||!a.closest||!a.closest("#todoBody .ib-text"))hideKbBar();},180);});
+  const txt=document.createElement("div");txt.className="ib-text";txt.contentEditable="true";
+  /* 占位提示：独立 contentEditable=false 节点，绝不与用户输入重叠；仅当空白且未聚焦时显示 */
+  const ph=document.createElement("span");ph.className="ib-ph";ph.setAttribute("contenteditable","false");ph.textContent="记点什么…";
+  txt.appendChild(ph);
+  if(n.text)txt.insertBefore(document.createTextNode(n.text),ph);
+  const readText=()=>{let s="";txt.childNodes.forEach(nd=>{if(nd!==ph)s+=nd.textContent;});return s;};
+  const updPh=()=>{row.classList.toggle("empty",readText().replace(/\s/g,"")==="");};
+  txt.addEventListener("input",()=>{n.text=readText();save();updPh();});
+  txt.addEventListener("focus",()=>{row.classList.add("focus");activeInspId=n.id;showKbBar();updPh();});
+  txt.addEventListener("blur",()=>{row.classList.remove("focus");setTimeout(()=>{const a=document.activeElement;if(!a||!a.closest||!a.closest("#todoBody .ib-text"))hideKbBar();},180);updPh();});
   txt.addEventListener("keydown",e=>{
     /* 回车：仅在当前条目内换行，不新建圆点（Apple 备忘录式交互） */
     if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();insertInspLineBreak(txt,n);}
@@ -481,6 +483,7 @@ function inspRow(n){
     row.addEventListener("click",e=>{if(e.target.closest(".ib-act")||e.target.closest("button"))return;e.stopPropagation();toggleInspSel(n.id);});
     row.addEventListener("click",e=>{if(row.classList.contains("sw-open")&&!e.target.closest(".ib-act")){row.classList.remove("sw-open");front.style.transform="";}});
   }
+  updPh();
   return row;
 }
 /* 删除空白行（直接移除，不进回收站） */
@@ -1181,7 +1184,7 @@ function renderDayPool(){
   const filter=state.poolList&&state.poolList!=="__all__"?state.poolList:null;
   const tasks=items.filter(t=>!filter||t.listId===filter);
   const doneN=tasks.filter(t=>t.done||t.abandoned).length;
-  if(title)title.textContent=`${(ds===todayStr()?"今日":"当日")}清单 · ${d.getMonth()+1}月${d.getDate()}日 · 共 ${tasks.length} 项`+(tasks.length?`（已完成 ${doneN}）`:"");
+  if(title)title.textContent="";   /* 需求：清空右侧清单模块内标题文字（保留 📋 emoji 与 #dlListSel 下拉框，顶部大标题不改） */
   box.innerHTML="";
   if(!tasks.length){box.innerHTML=`<div class="dl-empty-tip">这一天还没有任务 · 从周计划拖一个过来，或点「＋ 任务」新建</div>`;return;}
   tasks.sort((a,b)=>((a.done||a.abandoned)-(b.done||b.abandoned))||String(a.time||"99").localeCompare(String(b.time||"99")));
@@ -2758,7 +2761,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v17";
+  const SW_URL="sw.js?__v=jihua-v18";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
