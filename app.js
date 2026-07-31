@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 16;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 17;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -291,7 +291,7 @@ function enterPlan(pool){
 }
 function renderDrawer(){
   $("#dvInbox").textContent=state.inspirations.filter(n=>n.status==="inbox").length;
-  $("#dvTriage").textContent=state.inspirations.filter(n=>n.status==="inbox").length;
+  $("#dvTriage").textContent=state.inspirations.filter(n=>n.status==="triage").length;
   $("#dvTrash").textContent=state.inspirations.filter(n=>n.status==="trash").length;
   $$("#drawer .ditem[data-tv]").forEach(b=>b.classList.toggle("active",b.dataset.tv===state.todoLayer));
   const ul=$("#userLists");ul.innerHTML="";
@@ -378,8 +378,21 @@ function categorizeInsp(id){
   pickList("归类到清单",val=>{
     state.tasks.unshift(mkTask(val, n.text));
     n.status="categorized";
-    save();renderTriage();toast("已归类到清单 ✅");
+    save();
+    if(state.todoLayer==="triage")renderTriage();else renderInbox();
+    renderDrawer();
+    toast("已归类到清单 ✅");
   });
+}
+function moveToTriage(id){
+  const n=state.inspirations.find(x=>x.id===id);if(!n)return;
+  n.status="triage";save();
+  if(state.todoLayer==="triage")renderTriage();else renderInbox();
+  renderDrawer();toast("已暂存待分类 📂");
+}
+function moveToInbox(id){
+  const n=state.inspirations.find(x=>x.id===id);if(!n)return;
+  n.status="inbox";save();renderTriage();renderDrawer();toast("已移回收集箱 📥");
 }
 /* 选清单弹层（归类灵感 / 任务用） */
 function pickList(title,cb){
@@ -387,7 +400,8 @@ function pickList(title,cb){
   ov.innerHTML=`<div class="modal show" style="max-width:420px"><h3>${esc(title)}</h3><div id="pl"></div><div class="modal-btns"><span class="flex1"></span><button id="plCancel">取消</button></div></div>`;
   document.body.appendChild(ov);
   const pl=ov.querySelector("#pl");
-  const mk=(label,val,color)=>{const b=document.createElement("button");b.className="set-btn pick-row";b.style.marginBottom="8px";b.innerHTML=`<span class="dot" style="width:10px;height:10px;border-radius:50%;background:${color||'#8A857E'};flex:none"></span><span style="flex:1">${label}</span>`;b.onclick=()=>{ov.remove();cb(val);};pl.appendChild(b);};
+  const cnt=id=>id?state.tasks.filter(t=>t.listId===id&&!t.abandoned).length:state.tasks.filter(t=>!t.listId&&!t.abandoned).length;
+  const mk=(label,val,color)=>{const c=cnt(val);const b=document.createElement("button");b.className="set-btn pick-row";b.style.marginBottom="8px";b.innerHTML=`<span class="dot" style="width:10px;height:10px;border-radius:50%;background:${color||'#8A857E'};flex:none"></span><span style="flex:1">${label}</span><span class="pick-cnt">${c}</span>`;b.onclick=()=>{ov.remove();cb(val);};pl.appendChild(b);};
   mk("📥 收集箱",null,"#8A857E");
   state.lists.forEach(l=>mk(l.emoji+" "+l.name,l.id,l.color));
   ov.querySelector("#plCancel").onclick=()=>ov.remove();
@@ -422,6 +436,11 @@ function renderInbox(){
   add.innerHTML=`<span class="ib-bullet" style="color:var(--ink-3)">○</span><span class="insp-add-input" style="color:var(--ink-3)">新增一条灵感…</span>`;
   add.addEventListener("click",()=>addInsp(""));
   body.appendChild(add);
+  /* 底部交互指引 + 今日已记录条数 */
+  const hint=document.createElement("div");hint.className="insp-hint";
+  const todayN=state.inspirations.filter(n=>n.createdAt&&new Date(n.createdAt).toDateString()===new Date().toDateString()).length;
+  hint.innerHTML=`<span class="ih-swipe">💡 左滑 → 归类到清单　｜　右滑 → 暂存待分类</span><span class="ih-stat">📊 今日已记录 ${todayN} 条灵感</span>`;
+  body.appendChild(hint);
   renderInspSelBar();
   applyEmoji();
   /* 重建后自动聚焦（↓ 新建 / 底部新增） */
@@ -457,7 +476,7 @@ function inspRow(n){
   front.append(bullet,txt,plus,mic);
   if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
   row.appendChild(front);
-  enableSwipeReveal(row,{left:{label:"🗑 删除",cls:"ib-del-act",fn:()=>trashInsp(n.id)},right:null});
+  enableSwipeReveal(row,{left:{label:"📂 归类",cls:"ib-cat-act",fn:()=>categorizeInsp(n.id)},right:{label:"📥 待分类",cls:"ib-tri-act",fn:()=>moveToTriage(n.id)}});
   if(inspSel){
     row.addEventListener("click",e=>{if(e.target.closest(".ib-act")||e.target.closest("button"))return;e.stopPropagation();toggleInspSel(n.id);});
     row.addEventListener("click",e=>{if(row.classList.contains("sw-open")&&!e.target.closest(".ib-act")){row.classList.remove("sw-open");front.style.transform="";}});
@@ -496,7 +515,7 @@ function renderInspSelBar(){
     });
   };
   bar.querySelector(".is-mv").onclick=()=>{
-    inspSel.forEach(id=>{const n=state.inspirations.find(x=>x.id===id);if(n)n.status="inbox";});
+    inspSel.forEach(id=>{const n=state.inspirations.find(x=>x.id===id);if(n)n.status="triage";});
     inspSel=null;state.todoLayer="triage";save();renderTodo();toast("已移到待分类 📂");
   };
   document.body.appendChild(bar);
@@ -545,7 +564,7 @@ function enableSwipeReveal(row,opts){
 function renderTriage(){
   $("#todoTitle").textContent="📂 待分类";
   const body=$("#todoBody");body.innerHTML="";
-  const list=state.inspirations.filter(n=>n.status==="inbox");
+  const list=state.inspirations.filter(n=>n.status==="triage");
   if(!list.length){body.innerHTML=`<div class="insp-empty">🎉 没有待整理的了，灵感都归类好啦</div>`;applyEmoji();return;}
   const info=document.createElement("div");info.className="triage-info";info.textContent=`共 ${list.length} 条待整理 · 左滑归类到清单（删除请到灵感收集箱或回收站）`;
   body.appendChild(info);
@@ -555,7 +574,7 @@ function renderTriage(){
     front.innerHTML=`<span class="ib-bullet" style="pointer-events:none">○</span><div class="ib-text">${escBr(n.text)}</div>`;
     if(n.img){const im=document.createElement("img");im.src=n.img;im.className="ib-img";front.appendChild(im);}
     row.appendChild(front);
-    enableSwipeReveal(row,{left:{label:"📂 归类",cls:"ib-cat-act",fn:()=>categorizeInsp(n.id)},right:null});
+    enableSwipeReveal(row,{left:{label:"📂 归类",cls:"ib-cat-act",fn:()=>categorizeInsp(n.id)},right:{label:"↩ 收集箱",cls:"ib-in-act",fn:()=>moveToInbox(n.id)}});
     body.appendChild(row);
   });
   applyEmoji();
@@ -925,7 +944,7 @@ function renderDayListCard(){
   const d=new Date(dayListDate+"T00:00");
   const wk=DAY_NAMES[(d.getDay()+6)%7];
   card.innerHTML=`<div class="dlc-ico">📋</div><div class="dlc-main"><div class="dlc-title">日清单</div><div class="dlc-sub">${d.getMonth()+1}月${d.getDate()}日 ${wk} · 共 ${items.length} 项 ｜ 点击查看全部 →</div></div>`;
-  card.onclick=()=>openDayPage(dayListDate);
+  card.onclick=()=>openDayDetail(dayListDate);
 }
 /* 打开「日清单」便签弹窗（覆盖在周视图之上）：传入日期字符串，默认今天 */
 /* 打开「日清单」双栏时间轴页面（全页）：确保该日期落在当前周，切到 day 视图并渲染 */
@@ -981,6 +1000,7 @@ function ddTaskRow(t){
   const row=document.createElement("div");
   row.className="dd-row"+(t.done?" done":"")+(t.abandoned?" abandon":"");
   const st=document.createElement("button");st.className="dd-st"+(t.done?" on":(t.abandoned?" x":""));
+  st.textContent=t.done?"☑️":(t.abandoned?"✖️":"◻️");
   st.setAttribute("aria-label",t.abandoned?"已放弃":(t.done?"已完成":"未完成"));
   st.addEventListener("click",e=>{e.stopPropagation();toggleDone(t,!t.done);});
   const main=document.createElement("div");main.className="dd-main";
@@ -1022,13 +1042,9 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dayDetailOpen)close
    每条带勾选框 ◻️/☑️，已完成显示灰色文字 + 删除线。
    与周计划任务完全同源（state.tasks）：勾选/编辑一处，周视图与清单池同步。 */
 const TL_HOUR_H=44, TL_SNAP=30;            /* 每小时像素高 · 吸附分钟（供时间块拖拽复用） */
-const TL_START=6, TL_END=23, TL0=TL_START*60;   /* 时间轴默认范围 06:00–23:00（用户可在设置自定义；此处为常量入口） */
+const TL_START=0, TL_END=23, TL0=TL_START*60;   /* 时间轴范围 00:00–23:00（24 小时制，手帐风格） */
 let tlMoved=false;               /* 拖动后抑制 click 误触 */
-$("#dnNext").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,1);renderDay();save();});
-$("#dnPrev").addEventListener("click",()=>{state.dayDate=addDays(state.dayDate,-1);renderDay();save();});
 $("#dayBack").addEventListener("click",()=>{state.viewMode="week";renderView();save();});
-$("#dayBackWeek").addEventListener("click",()=>{state.viewMode="week";renderView();save();});
-$("#tlAddBtn").addEventListener("click",()=>openTaskModal(null,{due:state.dayDate}));
 $("#dlListSel").addEventListener("change",e=>{state.poolList=e.target.value;renderDayPool();save();});
 function hm2min(s){if(!s)return null;const m=/^(\d{1,2}):(\d{2})/.exec(String(s));return m?(+m[1])*60+(+m[2]):null;}
 function min2hm(m){m=Math.max(0,Math.min(1439,Math.round(m)));return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
@@ -1036,30 +1052,22 @@ function tlDur(t){const s=hm2min(t.time);if(s==null)return 60;const e=hm2min(t.t
 function hexA(hex,a){const h=String(hex||"#b8aeeb").replace("#","");const n=parseInt(h.length===3?h.split("").map(c=>c+c).join(""):h,16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
 function renderDay(){
   const ds=state.dayDate;
-  renderDayNav();
+  renderDayHeader();
   applyDaySplit();
   renderDayTimeline(ds);
   renderDayPool();
 }
-/* 顶部 7 天日期导航条：今天 ±3 共 7 天，等宽不折行，今天高亮 + 「今天」徽标，当前查看日选中 */
-function renderDayNav(){
-  const box=$("#dnDays"); if(!box)return;
-  const base=new Date((state.dayDate||todayStr())+"T00:00");
-  base.setDate(base.getDate()-3);
-  const cells=[];
-  for(let i=0;i<7;i++){
-    const d=new Date(base);d.setDate(base.getDate()+i);
-    const ds=fmtDate(d), isToday=ds===todayStr(), sel=(ds===state.dayDate);
-    cells.push(`<button class="dn-day${isToday?" today":""}${sel?" sel":""}" data-ds="${ds}">
-        <span class="d-num">${d.getMonth()+1}月${d.getDate()}日</span>
-        <span class="d-wk">${DAY_NAMES[(d.getDay()+6)%7]}</span>
-        ${isToday?'<span class="d-today-badge">今天</span>':""}
-      </button>`);
+/* 日程顶部：单行「7月31日 周五」+「今日清单·共 N 项」（最终版：移除 7 天导航条） */
+function renderDayHeader(){
+  const ds=state.dayDate||todayStr();
+  const d=new Date(ds+"T00:00");
+  const dateEl=$("#dayHeadDate"),cntEl=$("#dayHeadCount");
+  if(dateEl)dateEl.textContent=`${d.getMonth()+1}月${d.getDate()}日 ${DAY_NAMES[(d.getDay()+6)%7]}`;
+  if(cntEl){
+    const n=dayItems(ds).filter(x=>x.type==="task"&&!x.data.abandoned).length;
+    cntEl.textContent=`今日清单 · 共 ${n} 项`;
   }
-  box.innerHTML=cells.join("");
-  box.querySelectorAll(".dn-day").forEach(b=>b.addEventListener("click",()=>selectDay(b.dataset.ds)));
 }
-function selectDay(ds){ state.dayDate=ds; renderDay(); save(); }
 /* 日清单两栏宽度：拖动分隔线实时调整，比例存 state.daySplit，下次沿用 */
 function applyDaySplit(){
   const L=$("#dlLeft"),R=$("#dlRight"); if(!L||!R)return;
@@ -2469,7 +2477,6 @@ function applyScheme(key){
   ["--accent","--accent-deep","--accent-soft","--accent-bg"].forEach(p=>root.style.removeProperty(p));
   const meta=document.querySelector('meta[name=theme-color]');
   if(meta&&v["--bar"])meta.setAttribute("content",v["--bar"]);
-  if(typeof renderReview==="function"&&state.activeTab==="review"){try{renderReview();}catch(e){}}
 }
 let currentColorSys="red";
 function renderColorSystems(){
@@ -2507,8 +2514,6 @@ function applyAccent(){
   }else{
     vars.forEach(v=>root.style.removeProperty(v));
   }
-  /* 复盘图表用的是 canvas，重绘才生效 */
-  if(typeof renderReview==="function"&&state.activeTab==="review"){try{renderReview();}catch(e){}}
 }
 function accentDeep(hex){
   const c=String(hex).replace("#","");
@@ -2753,7 +2758,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v16";
+  const SW_URL="sw.js?__v=jihua-v17";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -2791,7 +2796,18 @@ initSplitter();
 initDaySplitter();
 switchTab(state.activeTab||"todo");
 if(toastLater)setTimeout(()=>toast(toastLater),600);
+function initReviewRefresh(){
+  const sb=document.querySelector("#page-review .scroll-body");if(!sb)return;
+  let y0=0,pull=false;
+  sb.addEventListener("touchstart",e=>{if(sb.scrollTop<=0&&e.touches&&e.touches[0]){y0=e.touches[0].clientY;pull=true;}},{passive:true});
+  sb.addEventListener("touchmove",e=>{if(!pull||!e.touches||!e.touches[0])return;const dy=e.touches[0].clientY-y0;if(dy>70){pull=false;renderReview();toast("已刷新 🔄");}},{passive:true});
+  sb.addEventListener("touchend",()=>{pull=false;});
+}
 window.addEventListener("resize",()=>{if(state.activeTab==="review")renderReview();});
+/* 复盘刷新机制（最终版）：仅「进入/切回/手动/唤醒」时刷新一次，页面静止后禁止任何自动刷新 */
+$("#revRefresh").addEventListener("click",()=>{renderReview();toast("已刷新最新数据 🔄");});
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && state.activeTab==="review"){renderReview();} });
+initReviewRefresh();
 
 /* ═══ 灵感收集箱键盘上方控制条（↑↓ 新建/跳转 · 完成/收起） ═══ */
 (function initKbBar(){
