@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 21;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 22;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -1162,8 +1162,16 @@ function renderDayTimeline(ds){
     blk.style.left=(c/tc*100)+"%";
     blk.style.width=`calc(${100/tc}% - 5px)`;
     const col=colorOf(t);
+    const cat=catName(t);
     blk.style.background=hexA(col,.20);blk.style.borderColor=hexA(col,.45);blk.style.borderLeftColor=col;
-    blk.innerHTML=`<span class="tb-st" role="button" aria-label="完成">${t.done?"☑️":"◻️"}</span><div class="tb-body"><div class="tb-title">${esc(t.title)}</div><div class="tb-time">${esc(t.time)}${t.timeEnd?(" – "+esc(t.timeEnd)):""}</div></div><div class="tb-resize" title="拖动调整时长"></div>`;
+    /* 任务卡片文字：任务标题 + 清单分类名称（小字） + 时间（小字）。分类名用清单色，强化「颜色统一」 */
+    blk.innerHTML=`<span class="tb-st" role="button" aria-label="完成">${t.done?"☑️":"◻️"}</span>`
+      +`<div class="tb-body">`
+      +`<div class="tb-title">${esc(t.title)}</div>`
+      +`<div class="tb-sub"><span class="tb-cat" style="color:${col}">${esc(cat)}</span>`
+      +`<span class="tb-time">${esc(t.time)}${t.timeEnd?(" – "+esc(t.timeEnd)):""}</span></div>`
+      +`</div>`
+      +`<div class="tb-resize" title="拖动调整时长"></div>`;
     const st=blk.querySelector(".tb-st");st.addEventListener("click",ev=>{ev.stopPropagation();toggleDone(t,!t.done);});
     blk.addEventListener("click",()=>openTaskModal(t.id));
     enableTlBlockDrag(blk,blk.querySelector(".tb-resize"),t);
@@ -1195,12 +1203,13 @@ function renderDayPool(){
     const lists=state.lists||[];
     const opts=`<option value="__all__">全部清单</option>`+lists.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join("");
     if(sel.innerHTML!==opts)sel.innerHTML=opts;
-    sel.value=state.poolList&&state.poolList!=="__all__"?state.poolList:"__all__";
+    const _all=!state.poolList||state.poolList==="all"||state.poolList==="__all__";
+    sel.value=_all?"__all__":state.poolList;
   }
   const title=$("#dlPoolTitle");
   const d=new Date(ds+"T00:00");
   const items=dayItems(ds).filter(x=>x.type==="task").map(x=>x.data);
-  const filter=state.poolList&&state.poolList!=="__all__"?state.poolList:null;
+  const filter=(!state.poolList||state.poolList==="all"||state.poolList==="__all__")?null:state.poolList;
   const tasks=items.filter(t=>!filter||t.listId===filter);
   const doneN=tasks.filter(t=>t.done||t.abandoned).length;
   if(title)title.textContent="";   /* 需求：清空右侧清单模块内标题文字（保留 📋 emoji 与 #dlListSel 下拉框，顶部大标题不改） */
@@ -1215,10 +1224,13 @@ function renderDayPool(){
     st.addEventListener("click",e=>{e.stopPropagation();toggleDone(t,!t.done);});
     const main=document.createElement("div");main.className="dl-main";
     const tt=document.createElement("div");tt.className="dl-title";tt.textContent=t.title;main.appendChild(tt);
-    const meta=document.createElement("div");meta.className="dl-time";
+    const sub=document.createElement("div");sub.className="dl-sub";
+    const catLbl=document.createElement("span");catLbl.className="dl-cat";catLbl.style.color=colorOf(t);catLbl.textContent=catName(t);sub.appendChild(catLbl);
+    const meta=document.createElement("span");meta.className="dl-time";
     if(t.time&&!t.allDay)meta.textContent="⏰ "+t.time+(t.timeEnd?(" – "+t.timeEnd):"");
     else if(t.allDay)meta.textContent="📌 全天";
-    if(meta.textContent)main.appendChild(meta);
+    if(meta.textContent)sub.appendChild(meta);
+    main.appendChild(sub);
     row.appendChild(st);row.appendChild(main);
     row.addEventListener("click",()=>openTaskModal(t.id));
     enableTlTrayDrag(row,t.id);
@@ -2780,7 +2792,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v21";
+  const SW_URL="sw.js?__v=jihua-v22";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
