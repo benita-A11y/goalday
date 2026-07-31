@@ -1,4 +1,4 @@
-/* ═══════════ 计划册 v18 · 五大新增功能（调色盘 / 情绪标签 / 每日手帐 / 灵感收集箱 / 年度回顾） ═══════════
+/* ═══════════ 计划册 v21 · 五大新增功能（调色盘 / 情绪标签 / 每日手帐 / 灵感收集箱 / 年度回顾） ═══════════
    复用 app.js 全局： $, $$, uid, state, save, toast, esc, fmtDate, todayStr, weekDates, addDays,
    md, mondayOf, isoWeek, DAY_NAMES, PALETTE, colorOf, listOf, activeTasks, renderAll, switchTab,
    showModal, closeModal, openTaskModal, streakOf, drawDonut, drawBars, drawLine, prepCv, roundRect,
@@ -714,12 +714,8 @@ function extractColors(img){
   return Object.values(map).sort((a,b)=>b.n-a.n).slice(0,6).map(o=>({hex:rgbHex(o.r,o.g,o.b)}));
 }
 function rgbHex(r,g,b){return "#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase();}
-/* 云同步（可插拔后端） */
-$("#paletteSync").addEventListener("click",()=>{
-  if(!CONFIG.API_BASE){toast("未配置同步后端 · 当前仅本机保存");return;}
-  fetch(CONFIG.API_BASE+"/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({palette:state.palette})})
-    .then(r=>r.ok?toast("已同步到云端 ☁️"):toast("同步失败")).catch(()=>toast("同步失败，检查网络/后端"));
-});
+/* 云同步已统一迁移到 sync.js（全量 state 同步 + 离线队列 + LWW）。
+   此处不再单独绑定 paletteSync，避免与 sync.js 重复触发。 */
 /* 灵感补给：固定展示全网热门 5 套成套配色（见 renderInspireStream），tab 切换已移除 */
 /* 配色日记预览 → 完整页 */
 $("#palDiaryPrev").addEventListener("click",openDiary);
