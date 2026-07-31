@@ -846,8 +846,10 @@ img.emoji{height:1.15em;width:1.15em;vertical-align:-.18em;margin:0 .02em;}
 .insp-front{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;}
 .ib-bullet{flex:none;width:24px;height:24px;border:0;background:transparent;color:var(--accent);font-size:18px;line-height:1;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;}
 .ib-bullet:active{background:color-mix(in srgb,var(--accent) 16%,transparent);}
-.ib-text{flex:1;font-size:15px;line-height:1.6;color:var(--ink);outline:none;min-height:22px;word-break:break-word;white-space:pre-wrap;}
-.ib-text:empty:before{content:"记点什么…";color:var(--ink-3);}
+.ib-text{flex:1;position:relative;font-size:15px;line-height:1.6;color:var(--ink);outline:none;min-height:22px;word-break:break-word;white-space:pre-wrap;}
+.ib-ph{position:absolute;left:0;top:0;color:var(--ink-3);pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.insp-row:not(.empty) .ib-ph{display:none;}
+.insp-row.focus .ib-ph{display:none;}
 .ib-img{margin-top:6px;max-width:140px;border-radius:10px;display:block;}
 .ib-del{font-size:11px;color:var(--ink-3);margin-left:auto;flex:none;}
 .insp-add{display:flex;align-items:center;gap:10px;padding:12px 14px;}
