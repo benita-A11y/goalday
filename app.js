@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 19;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 20;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -371,7 +371,7 @@ function permDeleteInsp(id){state.inspirations=state.inspirations.filter(x=>x.id
 function purgeTrash(){const cut=Date.now()-30*864e5;state.inspirations=state.inspirations.filter(n=>!(n.status==="trash"&&(n.deletedAt||0)<cut));}
 function categorizeInsp(id){
   const n=state.inspirations.find(x=>x.id===id);if(!n)return;
-  pickList("归类到清单",val=>{
+  pickList("选择清单",val=>{
     state.tasks.unshift(mkTask(val, n.text));
     n.status="categorized";
     save();
@@ -398,8 +398,26 @@ function pickList(title,cb){
   const pl=ov.querySelector("#pl");
   const cnt=id=>id?state.tasks.filter(t=>t.listId===id&&!t.abandoned).length:state.tasks.filter(t=>!t.listId&&!t.abandoned).length;
   const mk=(label,val,color)=>{const c=cnt(val);const b=document.createElement("button");b.className="set-btn pick-row";b.style.marginBottom="8px";b.innerHTML=`<span class="dot" style="width:10px;height:10px;border-radius:50%;background:${color||'#8A857E'};flex:none"></span><span style="flex:1">${label}</span><span class="pick-cnt">${c}</span>`;b.onclick=()=>{ov.remove();cb(val);};pl.appendChild(b);};
-  mk("📥 收集箱",null,"#8A857E");
-  state.lists.forEach(l=>mk(l.emoji+" "+l.name,l.id,l.color));
+  const renderRows=()=>{
+    pl.innerHTML="";
+    mk("📥 收集箱",null,"#8A857E");
+    state.lists.forEach(l=>mk(l.emoji+" "+l.name,l.id,l.color));
+    const add=document.createElement("button");add.className="set-btn pick-row pick-add";
+    add.innerHTML=`<span style="flex:1;color:var(--accent);font-weight:600">＋ 新建清单</span>`;
+    add.onclick=()=>{
+      pl.innerHTML=`<div class="pick-new"><input id="plName" class="pick-input" placeholder="清单名称" maxlength="20"><div class="pick-new-btns"><button id="plBack" class="set-btn">返回</button><button id="plOk" class="set-btn primary">创建并归类</button></div></div>`;
+      const inp=pl.querySelector("#plName");if(inp&&inp.focus)inp.focus();
+      pl.querySelector("#plBack").onclick=renderRows;
+      pl.querySelector("#plOk").onclick=()=>{
+        const nm=inp.value.trim();if(!nm){inp.focus();return;}
+        const id="L"+Date.now().toString(36);
+        state.lists.push({id,emoji:"📌",name:nm,color:"#8A857E"});
+        save();renderDrawer();ov.remove();cb(id);
+      };
+    };
+    pl.appendChild(add);
+  };
+  renderRows();
   ov.querySelector("#plCancel").onclick=()=>ov.remove();
   ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
 }
@@ -419,7 +437,7 @@ function renderInbox(){
   const body=$("#todoBody");body.innerHTML="";
   const list=state.inspirations.filter(n=>n.status==="inbox");
   const wrap=document.createElement("div");wrap.className="insp-editor";
-  if(!list.length)wrap.innerHTML=`<div class="insp-empty">✨ 想到什么就记下来，稍后整理<br><span class="dim">点下方空白处 / 最后一行新增一条 · 左滑删除 · 长按 ○ 批量</span></div>`;
+  if(!list.length)wrap.innerHTML=`<div class="insp-empty">🌸 灵感收集箱空空的<br><span class="dim">记录你一闪而过的念头吧<br>左滑灵感 → 归类到我的清单</span></div>`;
   list.forEach(n=>wrap.appendChild(inspRow(n)));
   body.appendChild(wrap);
   /* 点空白处（含空白提示）新建一行并聚焦 */
@@ -1120,7 +1138,7 @@ function renderDayTimeline(ds){
   hours.style.height=H+"px";blocks.style.height=H+"px";
   for(let h=TL_START;h<=TL_END;h++){
     const row=document.createElement("div");row.className="tl-hour";row.style.top=((h-TL_START)*TL_HOUR_H)+"px";
-    row.innerHTML=`<span class="tl-h-t">${String(h).padStart(2,"0")}:00</span><span class="tl-h-empty">＋ 拖拽任务到这里</span>`;
+    row.innerHTML=`<span class="tl-h-t">${String(h).padStart(2,"0")}</span>`;
     hours.appendChild(row);
   }
   /* 已排程且落在时间轴范围内的任务 */
@@ -2761,7 +2779,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v19";
+  const SW_URL="sw.js?__v=jihua-v20";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
