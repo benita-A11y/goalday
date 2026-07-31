@@ -81,21 +81,30 @@
       <div class="sub-head">
         <button id="dayBack" class="round-btn" title="返回周视图">‹</button>
         <b id="dayTitle">今天</b>
-        <button id="dayNext" class="round-btn">›</button>
+        <button id="dayPrev" class="round-btn" title="前一天">‹ 昨天</button>
+        <button id="dayNext" class="round-btn" title="后一天">明天 ›</button>
         <button id="dayToday" class="mini-btn">今天</button>
         <button id="tlAddBtn" class="mini-btn" title="新增任务">＋ 任务</button>
         <button id="dayBackWeek" class="mini-btn" title="返回周视图">📅 周视图</button>
       </div>
-      <div class="dl-one">
-        <div class="dl-one-head">
-          <div class="dl-oh-date" id="dlHeadDate">今天</div>
-          <div class="dl-oh-stat" id="dlHeadStat">共 0 项</div>
+      <div class="dl-cols">
+        <div class="dl-left" id="dlLeft">
+          <div class="dl-left-head">🕐 时间轴 <span class="tl-range" id="tlRange"></span></div>
+          <div class="tl-scroll" id="tlScroll">
+            <div class="tl24" id="tl24">
+              <div class="tl24-hours" id="tl24Hours"></div>
+              <div class="tl24-blocks" id="tl24Blocks"></div>
+              <div class="tl-now" id="tlNow" hidden></div>
+            </div>
+          </div>
         </div>
-        <div class="dl-one-list" id="dlPool"></div>
-        <div class="dl-one-empty" id="dlEmpty" hidden>
-          <div class="de-emoji">🫧</div>
-          <div class="de-title">今天还没有任务</div>
-          <div class="de-sub">点上方「＋ 任务」新建，或回周计划拖一个过来</div>
+        <div class="dl-right" id="dlRight">
+          <div class="dl-right-head">
+            <span class="dl-rh-ico">📋</span>
+            <span id="dlPoolTitle">今日清单</span>
+            <select id="dlListSel" class="dl-sel" title="切换清单"></select>
+          </div>
+          <div class="dl-pool" id="dlPool"></div>
         </div>
       </div>
     </div>
@@ -288,7 +297,7 @@
     </div>
     <div class="panel set-group">
       <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">计划册 v21 · 周视图单日任务列表平铺整格(滚动条贴右边缘) × 日清单便签弹窗(右滑入·勾选同步) × 全量持久化/云同步持续在线<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
+      <p class="set-note">计划册 v22 · 周视图单日任务列表满宽(滚动条贴右边缘) × 日清单双栏时间轴(左时间轴06-23/右清单池·拖拽排程/调时长/取消·当前红线) × 全量持久化/云同步持续在线<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
     </div>
     <div class="panel set-group">
       <h3 class="ptt">🗂️ 数据管理</h3>
@@ -296,7 +305,7 @@
         <span class="cd-t">🗑️ 清空当前数据</span>
         <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
       </button>
-      <div class="app-ver">计划册 v21 · 莫兰迪 / 马卡龙奶油风</div>
+      <div class="app-ver">计划册 v22 · 莫兰迪 / 马卡龙奶油风</div>
     </div>
   </div>
 </section>
