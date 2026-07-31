@@ -78,16 +78,17 @@
       <button id="fabView" title="切换 概览/详情">›</button>
     </div>
     <div class="vwrap" id="dayWrap" hidden>
-      <div class="sub-head">
+      <div class="sub-head day-toolbar">
         <button id="dayBack" class="round-btn" title="返回周视图">‹</button>
-        <b id="dayTitle">今天</b>
-        <button id="dayPrev" class="round-btn" title="前一天">‹ 昨天</button>
-        <button id="dayNext" class="round-btn" title="后一天">明天 ›</button>
-        <button id="dayToday" class="mini-btn">今天</button>
         <button id="tlAddBtn" class="mini-btn" title="新增任务">＋ 任务</button>
         <button id="dayBackWeek" class="mini-btn" title="返回周视图">📅 周视图</button>
       </div>
-      <div class="dl-cols">
+      <div class="day-nav">
+        <button id="dnPrev" class="dn-arrow" title="前一天">‹</button>
+        <div class="dn-days" id="dnDays"></div>
+        <button id="dnNext" class="dn-arrow" title="后一天">›</button>
+      </div>
+      <div class="dl-cols" id="dlCols">
         <div class="dl-left" id="dlLeft">
           <div class="dl-left-head">🕐 时间轴 <span class="tl-range" id="tlRange"></span></div>
           <div class="tl-scroll" id="tlScroll">
@@ -98,6 +99,7 @@
             </div>
           </div>
         </div>
+        <div class="dl-divider" id="dlDivider" title="拖动调整左右宽度"><span></span></div>
         <div class="dl-right" id="dlRight">
           <div class="dl-right-head">
             <span class="dl-rh-ico">📋</span>
@@ -463,7 +465,6 @@
   <div class="scroll-body" id="annualBody"></div>
 </section>
 
-<script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
 <script src="app.js"></script>
 <script src="plus.js"></script>
 <script src="sync.js"></script>
