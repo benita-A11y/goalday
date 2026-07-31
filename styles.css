@@ -426,12 +426,12 @@ body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 
 /* ── 双栏时间轴内部（v22）：刻度 / 任务块 / 当前红线 / 空占位 ── */
 .tl24{position:relative;width:100%;}
-.tl24-hours,.tl24-blocks{position:absolute;left:0;right:0;top:0;}
-.tl24-hours{z-index:1;pointer-events:none;}
-.tl24-blocks{z-index:2;pointer-events:none;}      /* 容器穿透，任务块本身接收事件 */
+/* 窄时间轴：最左侧 40px 竖条，右侧细灰分隔线；任务区整体右移让出这条窄轴 */
+.tl24-hours{position:absolute;left:0;top:0;width:40px;right:auto;border-right:1px solid var(--line);z-index:1;pointer-events:none;}
+.tl24-blocks{position:absolute;left:42px;right:0;top:0;z-index:2;pointer-events:none;}      /* 容器穿透，任务块本身接收事件；右移避开窄时间轴 */
 .tl24-blocks .tb{pointer-events:auto;}
-.tl-hour{position:absolute;left:0;right:0;height:44px;border-top:1px solid #E2DBD2;display:flex;align-items:flex-start;gap:8px;padding:3px 8px;box-sizing:border-box;}
-.tl-h-t{font-size:12.5px;color:var(--ink-soft);font-weight:600;flex:none;width:52px;text-align:right;user-select:none;font-variant-numeric:tabular-nums;}
+.tl-hour{position:absolute;left:0;right:0;height:44px;border-top:1px solid #E2DBD2;display:flex;align-items:flex-start;gap:0;padding:2px 0 0 0;box-sizing:border-box;}
+.tl-h-t{font-size:11px;color:#B8AEAB;font-weight:600;flex:none;width:34px;text-align:right;user-select:none;font-variant-numeric:tabular-nums;line-height:1.4;letter-spacing:.2px;}
 .tl-h-empty{font-size:11px;color:#C8BFB8;border:1px dashed rgba(150,140,130,.28);border-radius:8px;flex:1 1 auto;height:calc(44px - 8px);display:flex;align-items:center;padding-left:8px;opacity:.7;}
 .tl-ghost{position:fixed;z-index:999;pointer-events:none;opacity:.92;box-shadow:0 8px 22px rgba(0,0,0,.22);border-radius:12px;background:var(--bg-soft);border:1px solid var(--line);padding:10px 11px;font-size:13.5px;font-weight:600;color:var(--ink);}
 /* 已排程任务块 */
@@ -447,7 +447,7 @@ body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 .tb-resize{position:absolute;left:0;right:0;bottom:0;height:8px;cursor:ns-resize;}
 .tb-resize::after{content:"";position:absolute;left:50%;bottom:2px;width:22px;height:3px;margin-left:-11px;border-radius:2px;background:rgba(0,0,0,.18);}
 /* 当前时间红线（仅今天） */
-.tl-now{position:absolute;left:0;right:0;height:0;border-top:2px solid #FF6B6B;z-index:4;pointer-events:none;}
+.tl-now{position:absolute;left:42px;right:0;height:0;border-top:2px solid #FF6B6B;z-index:4;pointer-events:none;}
 .tl-now::before{content:"";position:absolute;left:0;top:-4px;width:8px;height:8px;border-radius:50%;background:#FF6B6B;}
 /* 右池空态 */
 .dl-empty-tip{color:var(--ink-soft);font-size:13px;text-align:center;padding:28px 16px;line-height:1.7;}
@@ -1441,3 +1441,12 @@ body.no-scroll{overflow:hidden;}
 }
 .set-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);}
 #syncStatus{margin-top:8px;font-size:12px;}
+
+/* ── 归类选择器：新建清单内联表单 ── */
+.pick-add{justify-content:flex-start;}
+.pick-new{display:flex;flex-direction:column;gap:10px;padding:2px 0 4px;}
+.pick-input{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:var(--bg);color:var(--ink);outline:none;box-sizing:border-box;}
+.pick-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);}
+.pick-new-btns{display:flex;gap:8px;}
+.pick-new-btns .set-btn{flex:1;justify-content:center;}
+.set-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
