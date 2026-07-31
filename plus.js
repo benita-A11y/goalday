@@ -1,4 +1,4 @@
-/* ═══════════ 计划册 v21 · 五大新增功能（调色盘 / 情绪标签 / 每日手帐 / 灵感收集箱 / 年度回顾） ═══════════
+/* ═══════════ 计划册 v22 · 五大新增功能（调色盘 / 情绪标签 / 每日手帐 / 灵感收集箱 / 年度回顾） ═══════════
    复用 app.js 全局： $, $$, uid, state, save, toast, esc, fmtDate, todayStr, weekDates, addDays,
    md, mondayOf, isoWeek, DAY_NAMES, PALETTE, colorOf, listOf, activeTasks, renderAll, switchTab,
    showModal, closeModal, openTaskModal, streakOf, drawDonut, drawBars, drawLine, prepCv, roundRect,
