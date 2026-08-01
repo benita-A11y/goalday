@@ -402,11 +402,11 @@ body.view-full #fabView{transform:rotate(90deg);}
 .dl-item.abandon .dl-st{opacity:.6;}
 .dl-item.dragging-source{opacity:.35;}
 
-/* 可拖拽分隔线：4px 宽，悬停/拖动显示双向箭头与主题色手柄 */
-.dl-divider{flex:0 0 3px;align-self:stretch;cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent;position:relative;touch-action:none;}
-.dl-divider::before{content:"";position:absolute;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--line);transition:background .15s,box-shadow .15s;}
-.dl-divider:hover::before,.dl-divider.active::before{background:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent);}
-.dl-divider span{position:absolute;width:3px;height:30px;border-radius:99px;background:transparent;transition:background .15s;}
+/* 可拖拽分隔线：14px 宽抓取区（手指/鼠标易抓），可见细线 3px 居中，悬停/拖动变粗高亮 */
+.dl-divider{flex:0 0 14px;align-self:stretch;cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent;position:relative;touch-action:none;}
+.dl-divider::before{content:"";position:absolute;left:50%;transform:translateX(-50%);top:10px;bottom:10px;width:3px;border-radius:99px;background:var(--line);transition:background .15s,box-shadow .15s,width .15s;}
+.dl-divider:hover::before,.dl-divider.active::before{background:var(--accent);width:5px;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent);}
+.dl-divider span{position:absolute;left:50%;transform:translateX(-50%);width:3px;height:34px;border-radius:99px;background:transparent;transition:background .15s;}
 .dl-divider:hover span,.dl-divider.active span{background:var(--accent);}
 body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 
