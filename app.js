@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 31;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 32;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2361,30 +2361,93 @@ function renderReview(){
 function paintReview(dates,isDay,isYear,sig){
   const cacheKey="review:"+state.reviewDim;
   const inRange=ds=>ds&&(isYear?dates.includes(ds.slice(0,7)):dates.includes(ds));
+  const dayLabels=isYear?dates.map(m=>+m.slice(5)+"月"):dates.map(ds=>isDay?ds.slice(5).replace("-","/"):+ds.slice(8));
+  const rangeLen=dates.length||1;
+  /* 任务 */
   const planned=state.tasks.filter(t=>!t.abandoned&&inRange(t.due));
   const doneT=planned.filter(t=>t.done);
+  const schedT=planned.filter(t=>t.time);          // 真正落到时间轴的排程
+  const schedDone=schedT.filter(t=>t.done);
   const rate=planned.length?Math.round(doneT.length/planned.length*100):0;
+  const schedRate=schedT.length?Math.round(schedDone.length/schedT.length*100):0;
+  /* 专注 */
   const recs=state.pomo.records.filter(r=>isYear?dates.includes(r.date.slice(0,7)):dates.includes(r.date));
   const focusMin=recs.reduce((s,r)=>s+r.minutes,0);
+  const pomoCnt=recs.length;
+  const avgMin=pomoCnt?Math.round(focusMin/pomoCnt):0;
+  /* 习惯 */
   let habitDays=0;dates.forEach(ds=>{if(state.habits.some(h=>h.checks[ds]))habitDays++;});
+  const habitRate=Math.round(habitDays/rangeLen*100);
+  /* 附加 */
+  const overdueCnt=state.tasks.filter(t=>!t.abandoned&&!t.done&&t.due&&t.due<todayStr()&&inRange(t.due)).length;
   const prevRate=rateOf(revRangeShifted(state.reviewDim),isYear);
   const trend=(prevRate==null)?"":(rate>prevRate?` ↑${rate-prevRate}%`:rate<prevRate?` ↓${prevRate-rate}%`:" 持平");
+
+  /* ── 第一层 总体概览 ── */
   $("#revSummary").innerHTML=
-    `<div class="scard"><b>${doneT.length}</b><span>完成任务 ✅</span></div>`+
+    `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
+    `<div class="scard"><b>${schedRate}%</b><span>日程达标率 🗓️</span></div>`+
     `<div class="scard"><b>${Math.round(focusMin/6)/10}</b><span>专注小时 ⏱️</span></div>`+
-    `<div class="scard"><b>${habitDays}</b><span>打卡天数 📅</span></div>`+
-    `<div class="scard"><b>${rate}%</b><span>完成率 🎯${trend}</span></div>`;
-  /* 环形：清单完成分布 */
+    `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
+    `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
+    `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`;
+  /* 自律评分：加权 0–100 */
+  const focusScore=Math.min(100,Math.round(focusMin/(rangeLen*25)*100));
+  const score=Math.max(0,Math.min(100,Math.round(rate*0.34+schedRate*0.18+habitRate*0.28+focusScore*0.20)));
+  const gi=score>=85?0:score>=70?1:score>=55?2:score>=40?3:4;
+  const sg=["#7FB89A","#9DC1A6","#E0C05C","#D99A5B","#C77B6E"][gi];
+  const grade=["优秀","良好","一般","待提升","待提升"][gi];
+  $("#revScore").innerHTML=`<div class="score-ring" style="--c:${sg}"><span>${score}</span></div><div class="score-meta">综合自律评分 · <b style="color:${sg}">${grade}</b></div>`;
+
+  /* ── 模块一 分类完成分布 ── */
   const groups=[];const push=(l,c,n)=>{if(n>0)groups.push({label:l,color:c,value:n});};
   push("收集箱","#8E8E93",doneT.filter(t=>!t.listId).length);
   state.lists.forEach(l=>push(l.emoji+l.name,l.color,doneT.filter(t=>t.listId===l.id).length));
   drawDonut($("#revDonut"),groups);
   $("#revDonutLegend").innerHTML=groups.length?groups.map(g=>`<span><i style="background:${g.color}"></i>${esc(g.label)} ${g.value}</span>`).join(""):"<span>暂无已完成任务</span>";
-  /* 折线：完成 vs 计划 */
-  const labels=isYear?dates.map(m=>+m.slice(5)+"月"):dates.map(ds=>isDay?ds.slice(5).replace("-","/"):+ds.slice(8)+"");
+  /* 模块一 完成 vs 计划 */
   const planS=dates.map(k=>state.tasks.filter(t=>!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
   const doneS=dates.map(k=>state.tasks.filter(t=>t.done&&!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
-  drawLine($("#revLine"),labels,doneS,planS);
+  drawLine($("#revLine"),dayLabels,doneS,planS);
+  /* 模块一 优先级四象限 */
+  const qLabels=["P0 紧急重要","P1 重要","P2 普通","P3 低优"];
+  const qColors=["#C77B6E","#D99A5B","#7FB89A","#9B8EC9"];
+  const qd=[0,1,2,3].map(p=>({label:qLabels[p],color:qColors[p],value:doneT.filter(t=>(t.priority??2)===p).length}));
+  drawDonut($("#revQuad"),qd);
+  $("#revQuadLegend").innerHTML=qd.map(g=>`<span><i style="background:${g.color}"></i>${esc(g.label)} ${g.value}</span>`).join("");
+
+  /* ── 模块二 日程执行复盘 ── */
+  const liftTotal=schedT.length,liftDone=schedDone.length,liftUndone=liftTotal-liftDone;
+  const autoNew=state.tasks.filter(t=>!t.abandoned&&t.due&&inRange(t.due)&&t.createdAt&&fmtDate(new Date(t.createdAt))===t.due).length;
+  $("#revSchedStats").innerHTML=
+    `<div class="ms"><b>${liftTotal}</b><span>排程任务</span></div>`+
+    `<div class="ms"><b>${liftDone}</b><span>已完成</span></div>`+
+    `<div class="ms"><b>${liftUndone}</b><span>未完成</span></div>`+
+    `<div class="ms"><b>${autoNew}</b><span>当日新建排程</span></div>`;
+  const utilVals=dates.map(k=>state.tasks.filter(t=>!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
+  drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9");
+  $("#revUtilLegend").innerHTML=`<span>每日排程任务数（时间利用率）</span>`;
+
+  /* ── 模块三 番茄专注复盘 ── */
+  $("#revFocusStats").innerHTML=
+    `<div class="ms"><b>${Math.round(focusMin/6)/10}</b><span>总专注(h)</span></div>`+
+    `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
+    `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`;
+  const wk=[0,0,0,0,0,0,0];
+  recs.forEach(r=>{const d=new Date(r.date+"T00:00:00");const i=(d.getDay()+6)%7;if(i>=0&&i<7)wk[i]+=r.minutes;});
+  drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>Math.round(m/6)/10),"#6F9FD6");
+  $("#revFocusHeatLegend").innerHTML=`<span>各星期专注时长(h) · 黄金时段一目了然</span>`;
+  const focusTrend=dates.map(k=>Math.round(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+r.minutes,0)/6)/10);
+  drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0));
+
+  /* ── 模块四 习惯打卡复盘 ── */
+  const hd=state.habits.filter(h=>!h.archived).map(h=>{
+    let c=0;dates.forEach(ds=>{if(h.checks[ds])c++;});
+    let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(h.checks[ds])streak++;else break;}
+    return {h,c,rate:Math.round(c/rangeLen*100),streak};
+  }).sort((a,b)=>b.rate-a.rate);
+  $("#revHabitStats").innerHTML=hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>";
+
   /* 温柔的夸夸 & 改进 */
   buildPraise({planned,doneT,rate,focusMin,habitDays,prevRate,dates,isYear,isDay});
   buildImprove({planned,doneT,rate,focusMin,habitDays,dates,isYear,isDay});
@@ -2815,7 +2878,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v31";
+  const SW_URL="sw.js?__v=jihua-v32";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
