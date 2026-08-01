@@ -1384,6 +1384,10 @@ body.no-scroll{overflow:hidden;}
 @keyframes sk-fade{from{opacity:0}to{opacity:1}}
 #dataView .panel.empty-tip,#dataView .panel.de-tip{position:relative;}
 #dataView .panel.empty-tip::after,#dataView .panel.de-tip::after{display:none;}
+/* 复盘空状态 / 异常兜底：纯文字提示，卡片外壳与标题保留不动 */
+.rev-empty{margin:8px 0 2px;padding:12px 14px;border-radius:10px;background:var(--bg-soft);color:var(--ink-soft);font-size:13px;line-height:1.7;text-align:center;}
+.rev-error{margin-bottom:12px;border-color:color-mix(in srgb,var(--accent) 40%,var(--line));}
+.rev-error .pp{color:var(--ink-soft);line-height:1.7;}
 
 /* ═══ 打卡 · 历史记录 ═══ */
 .hist-dims{margin:10px 14px 4px;}
