@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 37;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 38;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2336,17 +2336,41 @@ function revRangeShifted(dim){
   const y=now.getFullYear()-1;const out=[];for(let m=0;m<12;m++)out.push(`${y}-${String(m+1).padStart(2,"0")}`);return out;
 }
 function rateOf(dates,isYear){const inR=ds=>ds&&(isYear?dates.includes(ds.slice(0,7)):dates.includes(ds));const p=state.tasks.filter(t=>!t.abandoned&&inR(t.due));return p.length?Math.round(p.filter(t=>t.done).length/p.length*100):null;}
+/* 复盘进入/切换：轻量骨架屏 + 同步重算，出错不白屏；不整页重载，仅局部刷新 */
 function renderReview(){
   $$("#revDims button").forEach(b=>b.classList.toggle("active",b.dataset.d===state.reviewDim));
-  const {dates,label,isDay,isYear}=revRange();
-  $("#revRangeLabel").textContent=label;
   const dataView=$("#dataView");
-  dataView.classList.remove("loading");   /* 确保骨架屏不残留，进入即见最新数据 */
-  /* 每次进入都从 state 同源重新计算：数据最新、精准、跨模块一致，绝不读陈旧缓存 */
-  paintReview(dates,isDay,isYear);
-  /* 图表淡入，便于察觉已刷新 */
-  ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
+  const oldErr=dataView.querySelector(".rev-error"); if(oldErr)oldErr.remove();   /* 数据正常时不残留错误条 */
+  let range;
+  try{ range=revRange(); }
+  catch(err){ console.error("复盘取数失败",err); revFatal(); return; }
+  $("#revRangeLabel").textContent=range.label||"";
+  dataView.classList.add("loading");   /* 轻量加载态：先骨架屏，下一帧再渲染真实数据 */
+  requestAnimationFrame(()=>{
+    try{
+      /* 每次进入都从 state 同源重新计算：数据最新、精准、跨模块一致，绝不读陈旧缓存 */
+      paintReview(range.dates,range.isDay,range.isYear);
+      ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
+    }catch(err){
+      console.error("复盘渲染失败",err); revFatal();
+    }finally{
+      dataView.classList.remove("loading");   /* 无论成败都撤掉骨架，绝不卡白屏 */
+    }
+  });
 }
+/* 数据/渲染异常兜底：保留顶部标题与周月年 tab，仅用友好文案替代空白 */
+function revFatal(){
+  const dv=$("#dataView"); dv.classList.remove("loading");
+  if(dv.querySelector(".rev-error"))return;
+  const p=document.createElement("div"); p.className="panel rev-error";
+  p.innerHTML=`<h3 class="ptt">🫧 数据读取出现了一点小状况</h3><p class="pp">你的记录都还在，别担心。点右上角 ↻ 重新刷新一下，或稍后再来看看～</p>`;
+  dv.prepend(p);
+}
+/* 空状态文案（纯文字，无图片）：模块无数据时展示在图表区，卡片外壳与标题保留 */
+const REV_EMPTY_TIP="该周期暂时还没有记录哦，开始行动之后就会生成复盘数据✨";
+function revEmptyTip(){return `<div class="rev-empty">${REV_EMPTY_TIP}</div>`;}
+/* 单张图表绘制容错：某图异常不连累其它模块，也不中断整体渲染 */
+function safeDraw(fn){try{fn();}catch(e){console.error("图表绘制失败",e);}}
 /* 复盘数据始终从 state 同源计算 → 与周视图/打卡/专注三方一致、跨模块数字一致 */
 function paintReview(dates,isDay,isYear){
   const hrs=m=>Math.round(m/6)/10;   /* 分钟→小时，统一四舍五入；概览与专注模块共用，保证数字一致 */
@@ -2390,8 +2414,9 @@ function paintReview(dates,isDay,isYear){
     `<div class="ms"><b>${liftUndone}</b><span>未完成</span></div>`+
     `<div class="ms"><b>${autoNew}</b><span>当日新建排程</span></div>`;
   const utilVals=dates.map(k=>state.tasks.filter(t=>!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
-  drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9");
-  $("#revUtilLegend").innerHTML=`<span>每日排程任务数（时间利用率）</span>`;
+  safeDraw(()=>drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9"));   /* 无数据时仍渲染 0 值与坐标轴 */
+  const schedEmpty=schedT.length===0;
+  $("#revUtilLegend").innerHTML=schedEmpty?revEmptyTip():`<span>每日排程任务数（时间利用率）</span>`;
 
   /* ── 番茄专注复盘 ── */
   $("#revFocusStats").innerHTML=
@@ -2400,10 +2425,11 @@ function paintReview(dates,isDay,isYear){
     `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`;
   const wk=[0,0,0,0,0,0,0];
   recs.forEach(r=>{const d=new Date(r.date+"T00:00:00");const i=(d.getDay()+6)%7;if(i>=0&&i<7)wk[i]+=r.minutes;});
-  drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6");
-  $("#revFocusHeatLegend").innerHTML=`<span>各星期专注时长(h) · 黄金时段一目了然</span>`;
+  safeDraw(()=>drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6"));   /* 无数据时仍渲染 0 值与坐标轴 */
+  const focusEmpty=recs.length===0;
+  $("#revFocusHeatLegend").innerHTML=focusEmpty?revEmptyTip():`<span>各星期专注时长(h) · 黄金时段一目了然</span>`;
   const focusTrend=dates.map(k=>hrs(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+r.minutes,0)));
-  drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0));
+  safeDraw(()=>drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0)));
 
   /* ── 习惯打卡复盘 ── */
   const hd=state.habits.filter(h=>!h.archived).map(h=>{
@@ -2411,7 +2437,9 @@ function paintReview(dates,isDay,isYear){
     let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(h.checks[ds])streak++;else break;}
     return {h,c,rate:Math.round(c/rangeLen*100),streak};
   }).sort((a,b)=>b.rate-a.rate);
+  const habitHasData=hd.some(o=>o.c>0);
   $("#revHabitStats").innerHTML=hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>";
+  if(!habitHasData)$("#revHabitStats").insertAdjacentHTML("beforeend",revEmptyTip());   /* 无打卡记录：卡片保留 + 温柔提示 */
 
   /* 温柔的夸夸 & 改进：全部基于上面同源计算出的真实数据 */
   const revCtx={planned,doneT,rate,schedRate,schedDone:liftDone,schedTotal:liftTotal,
@@ -2853,7 +2881,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v37";
+  const SW_URL="sw.js?__v=jihua-v38";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
