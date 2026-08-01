@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 22;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 23;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -1093,7 +1093,7 @@ function renderDayHeader(){
 /* 日清单两栏宽度：拖动分隔线实时调整，比例存 state.daySplit，下次沿用 */
 function applyDaySplit(){
   const L=$("#dlLeft"),R=$("#dlRight"); if(!L||!R)return;
-  const pct=Math.max(45,Math.min(85,state.daySplit||68));
+  const pct=Math.max(62,Math.min(72,state.daySplit||68));
   L.style.flex="0 0 "+pct+"%";
   R.style.flex="1 1 "+(100-pct)+"%";
 }
@@ -1112,7 +1112,7 @@ function initDaySplitter(){
     if(!on)return;
     const x=(e.touches?e.touches[0].clientX:e.clientX);
     let pct=(startW+(x-sx))/cw*100;
-    pct=Math.max(45,Math.min(85,pct));
+    pct=Math.max(62,Math.min(72,pct));
     state.daySplit=+pct.toFixed(1);
     applyDaySplit();
     if(e.cancelable)e.preventDefault();
@@ -1194,7 +1194,7 @@ function positionTlNow(){
   if(m>=TL0&&m<=TL_END*60){now.hidden=false;now.style.top=((m-TL0)/60*TL_HOUR_H)+"px";}
   else now.hidden=true;
 }
-/* 右栏：当日清单池——全部任务，已排程显示 ⏰，可拖拽到左轴排程；支持按清单分类切换 */
+/* 右栏：当日清单池——仅显示「未排程」任务（已拖到时间轴的从池剪切移出），可直接拖拽到左轴排程；支持按清单分类切换 */
 function renderDayPool(){
   const box=$("#dlPool");if(!box)return;
   const ds=state.dayDate;
@@ -1210,15 +1210,16 @@ function renderDayPool(){
   const d=new Date(ds+"T00:00");
   const items=dayItems(ds).filter(x=>x.type==="task").map(x=>x.data);
   const filter=(!state.poolList||state.poolList==="all"||state.poolList==="__all__")?null:state.poolList;
-  const tasks=items.filter(t=>!filter||t.listId===filter);
+  /* 仅显示「未排程」任务：已拖到时间轴（带 time）的视为已排程，从清单池剪切移出（非复制），代表已安排进当天日程 */
+  const tasks=items.filter(t=>(!t.time)&&(!filter||t.listId===filter));
   const doneN=tasks.filter(t=>t.done||t.abandoned).length;
   if(title)title.textContent="";   /* 需求：清空右侧清单模块内标题文字（保留 📋 emoji 与 #dlListSel 下拉框，顶部大标题不改） */
   box.innerHTML="";
-  if(!tasks.length){box.innerHTML=`<div class="dl-empty-tip">这一天还没有任务 · 从周计划拖一个过来，或点「＋ 任务」新建</div>`;return;}
+  if(!tasks.length){box.innerHTML=`<div class="dl-empty-tip">当日还没有未排程的任务 · 从周计划拖一个过来，或点「＋ 任务」新建</div>`;return;}
   tasks.sort((a,b)=>((a.done||a.abandoned)-(b.done||b.abandoned))||String(a.time||"99").localeCompare(String(b.time||"99")));
   tasks.forEach(t=>{
     const row=document.createElement("div");
-    row.className="dl-item"+(t.done?" done":"")+(t.abandoned?" abandon":"")+(t.time&&!t.allDay?" scheduled":"");
+    row.className="dl-item"+(t.done?" done":"")+(t.abandoned?" abandon":"");
     row.style.borderLeftColor=colorOf(t);
     const st=document.createElement("span");st.className="dl-st";st.textContent=t.done?"☑️":(t.abandoned?"❌":"◻️");
     st.addEventListener("click",e=>{e.stopPropagation();toggleDone(t,!t.done);});
@@ -1227,8 +1228,7 @@ function renderDayPool(){
     const sub=document.createElement("div");sub.className="dl-sub";
     const catLbl=document.createElement("span");catLbl.className="dl-cat";catLbl.style.color=colorOf(t);catLbl.textContent=catName(t);sub.appendChild(catLbl);
     const meta=document.createElement("span");meta.className="dl-time";
-    if(t.time&&!t.allDay)meta.textContent="⏰ "+t.time+(t.timeEnd?(" – "+t.timeEnd):"");
-    else if(t.allDay)meta.textContent="📌 全天";
+    if(t.allDay)meta.textContent="📌 全天";
     if(meta.textContent)sub.appendChild(meta);
     main.appendChild(sub);
     row.appendChild(st);row.appendChild(main);
@@ -1289,7 +1289,7 @@ function enableTlBlockDrag(el,handle,t){
         const ns=el.dataset.ns!=null?+el.dataset.ns:s0,nd=el.dataset.nd!=null?+el.dataset.nd:d0;
         t.time=min2hm(ns);t.timeEnd=min2hm(ns+nd);t.allDay=false;
         save();renderDay();
-        toast("⏰ "+t.time+" – "+t.timeEnd);
+        toast("已安排到 "+t.time+" – "+t.timeEnd);
         setTimeout(()=>{tlMoved=false;},60);
       };
       const cleanup=()=>{clearTimeout(timer);unbind();el.classList.remove("tl-lift");};
@@ -1357,7 +1357,7 @@ function enableTlTrayDrag(el,taskId){
       if(active&&hint){
         const min=+hint.dataset.min;
         const t=state.tasks.find(k=>k.id===taskId);
-        if(t){t.time=min2hm(min);t.timeEnd=min2hm(min+60);t.allDay=false;save();toast("⏰ 已安排到 "+t.time);}
+        if(t){t.time=min2hm(min);t.timeEnd=min2hm(min+60);t.allDay=false;save();toast("已安排到 "+t.time);}
       }
       if(hint)hint.remove();
       if(g)g.remove();
@@ -2792,7 +2792,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v22";
+  const SW_URL="sw.js?__v=jihua-v23";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
