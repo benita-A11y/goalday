@@ -1,5 +1,5 @@
 /* 计划册 Service Worker - 离线可用 + 每次刷新拉取最新 */
-const CACHE = "jihua-v32";
+const CACHE = "jihua-v33";
 const ASSETS = [
   "./",
   "./index.html",
