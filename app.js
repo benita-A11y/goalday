@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 23;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 24;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -1184,6 +1184,30 @@ function renderDayTimeline(ds){
       window.__tlNowTimer=setInterval(()=>{ if(!$("#dayWrap")||!$("#dayWrap").hidden)positionTlNow(); },60000);
     }
   }
+  /* v24：首次进入日程时，自动滚动到当前时间所在小时（让红线落在首屏可见范围中段） */
+  scrollTlToNow();
+}
+/* v24：把时间轴滚动容器滚到当前时间红线位置（首次入场 + 每次切日） */
+function scrollTlToNow(){
+  const sc=$("#tlScroll"); if(!sc)return;
+  const ds=state.dayDate; if(!ds)return;
+  const today=todayStr();
+  let targetMin;
+  if(ds===today){
+    const d=new Date();
+    targetMin=d.getHours()*60+d.getMinutes();
+  }else{
+    /* 未来/过去的日期：滚到当天第一个已排程任务，没有则滚到 8:00（早高峰） */
+    const first=dayItems(ds).filter(x=>x.type==="task").map(x=>x.data)
+      .filter(t=>{const s=hm2min(t.time);return s!=null&&s>=TL0&&s<=TL_END*60&&!t.abandoned;})
+      .map(t=>hm2min(t.time)).sort((a,b)=>a-b)[0];
+    targetMin=first!=null?first:8*60;
+  }
+  const y=(targetMin/60)*TL_HOUR_H;
+  const half=sc.clientHeight/2;
+  sc.scrollTop=Math.max(0,y-half);
+  /* 同步把头部日期显示「今天」位置标识（导航回今天用） */
+  if(ds===today)state._tlScrolledToToday=true;
 }
 /* 重定位当前时间红线（按真实时间，分钟级）；非今天则隐藏 */
 function positionTlNow(){
@@ -2792,7 +2816,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v23";
+  const SW_URL="sw.js?__v=jihua-v24";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
