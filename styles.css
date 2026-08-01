@@ -546,6 +546,11 @@ canvas{width:100%;display:block;}
 .home-add:active{background:rgba(0,0,0,.06);}
 
 /* ═══ 复盘页 ═══ */
+/* 复盘页独立内部滚动容器：固定满屏高度 + 自身 overflow 滚动 + GPU 合成层，
+   修复 iOS 下滑后内容消失/截断（窗口级滚动 + canvas 重绘失效）的顽疾；仅作用于复盘页 */
+#page-review.active{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;padding:0;max-width:1080px;margin:0 auto;}
+#page-review .page-head,#page-review .sub-tabs{flex:0 0 auto;}
+#page-review .scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateZ(0);will-change:transform;padding:0 14px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);gap:12px;}
 .rev-range{font-size:13px;color:var(--ink-soft);font-weight:600;padding:4px 2px 2px;}
 .praise,.improve{position:relative;}
 .praise{border-color:var(--accent);background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,var(--bg)),var(--bg));}
