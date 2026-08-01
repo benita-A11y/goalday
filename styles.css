@@ -479,8 +479,8 @@ body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 .focus-opts select,.focus-opts input[type=time]{border:0;border-radius:8px;padding:7px 10px;background:var(--bg-soft);font-size:13px;outline:none;border:1px solid var(--line);min-width:90px;}
 .focus-opts input[type=checkbox]{width:18px;height:18px;accent-color:var(--green);}
 
-.stat-cards{display:flex;gap:10px;flex-wrap:wrap;width:100%;max-width:420px;margin:0 auto;}
-.scard{flex:1;min-width:96px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 12px;text-align:center;}
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;width:100%;max-width:440px;margin:0 auto;}
+.scard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 12px;text-align:center;}
 .scard b{display:block;font-size:24px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
 .scard span{font-size:11px;color:var(--ink-soft);margin-top:2px;display:block;}
 /* 复盘：分区标题 / 自律评分 / 模块小统计 / 习惯行 */
