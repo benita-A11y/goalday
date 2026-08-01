@@ -229,17 +229,31 @@
     <button data-m="journal">📝 每日手帐</button>
   </div>
   <div class="scroll-body">
-    <div id="dataView">
-      <div id="revRangeLabel" class="rev-range"></div>
-      <div class="stat-cards" id="revSummary"></div>
-      <div class="panel"><h3 class="ptt">🧁 清单完成分布</h3><canvas id="revDonut" height="210"></canvas><div id="revDonutLegend" class="legend"></div></div>
-      <div class="panel"><h3 class="ptt">📈 完成 vs 计划</h3><canvas id="revLine" height="190"></canvas></div>
-      <div class="panel praise" id="revPraise"></div>
-      <div class="panel improve" id="revImprove"></div>
-      <div class="panel" id="revMoodPanel" hidden><h3 class="ptt">💗 心情分布</h3><canvas id="revMoodDonut" height="200"></canvas><div id="revMoodLegend" class="legend"></div></div>
-      <div class="panel" id="revMoodTrendPanel" hidden><h3 class="ptt">🌈 心情趋势</h3><canvas id="revMoodLine" height="180"></canvas></div>
-      <div class="panel"><h3 class="ptt">🗓️ 本月日历</h3><div class="heatmap" id="revCal"></div></div>
-    </div>
+      <div id="dataView">
+        <div id="revRangeLabel" class="rev-range"></div>
+
+        <div class="rev-section-title">📋 总体概览</div>
+        <div class="stat-cards" id="revSummary"></div>
+        <div class="panel score-panel"><h3 class="ptt">🌟 自律评分</h3><div id="revScore" class="score-box"></div></div>
+
+        <div class="rev-section-title">🔍 细分数据拆解</div>
+
+        <div class="panel"><h3 class="ptt">🧁 任务清单复盘 · 分类完成分布</h3><canvas id="revDonut" height="210"></canvas><div id="revDonutLegend" class="legend"></div></div>
+        <div class="panel"><h3 class="ptt">📊 任务清单复盘 · 完成 vs 计划</h3><canvas id="revLine" height="190"></canvas></div>
+        <div class="panel"><h3 class="ptt">🎯 任务清单复盘 · 优先级四象限</h3><canvas id="revQuad" height="190"></canvas><div id="revQuadLegend" class="legend"></div></div>
+
+        <div class="panel"><h3 class="ptt">🗓️ 日程执行复盘</h3><div id="revSchedStats" class="mini-stats"></div><canvas id="revUtil" height="170"></canvas><div id="revUtilLegend" class="legend"></div></div>
+
+        <div class="panel"><h3 class="ptt">🍅 番茄专注复盘</h3><div id="revFocusStats" class="mini-stats"></div><canvas id="revFocusHeat" height="130"></canvas><div id="revFocusHeatLegend" class="legend"></div><canvas id="revFocusTrend" height="170"></canvas></div>
+
+        <div class="panel"><h3 class="ptt">✅ 习惯打卡复盘</h3><div id="revHabitStats"></div></div>
+
+        <div class="panel praise" id="revPraise"></div>
+        <div class="panel improve" id="revImprove"></div>
+        <div class="panel" id="revMoodPanel" hidden><h3 class="ptt">💗 心情分布</h3><canvas id="revMoodDonut" height="200"></canvas><div id="revMoodLegend" class="legend"></div></div>
+        <div class="panel" id="revMoodTrendPanel" hidden><h3 class="ptt">🌈 心情趋势</h3><canvas id="revMoodLine" height="180"></canvas></div>
+        <div class="panel"><h3 class="ptt">🗓️ 打卡日历热力图</h3><div class="heatmap" id="revCal"></div></div>
+      </div>
     <div id="journalView" hidden></div>
     <div id="annualEntry"></div>
   </div>
