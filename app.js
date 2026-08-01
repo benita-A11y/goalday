@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 32;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 33;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2354,7 +2354,7 @@ function renderReview(){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     paintReview(dates,isDay,isYear,sig);
     dataView.classList.remove("loading");
-    ["#revDonut","#revLine","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
+    ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
   }));
 }
 /* 复盘数据始终从 state 同源计算 → 与周视图/打卡/专注三方一致 */
@@ -2391,32 +2391,7 @@ function paintReview(dates,isDay,isYear,sig){
     `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
     `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
     `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`;
-  /* 自律评分：加权 0–100 */
-  const focusScore=Math.min(100,Math.round(focusMin/(rangeLen*25)*100));
-  const score=Math.max(0,Math.min(100,Math.round(rate*0.34+schedRate*0.18+habitRate*0.28+focusScore*0.20)));
-  const gi=score>=85?0:score>=70?1:score>=55?2:score>=40?3:4;
-  const sg=["#7FB89A","#9DC1A6","#E0C05C","#D99A5B","#C77B6E"][gi];
-  const grade=["优秀","良好","一般","待提升","待提升"][gi];
-  $("#revScore").innerHTML=`<div class="score-ring" style="--c:${sg}"><span>${score}</span></div><div class="score-meta">综合自律评分 · <b style="color:${sg}">${grade}</b></div>`;
-
-  /* ── 模块一 分类完成分布 ── */
-  const groups=[];const push=(l,c,n)=>{if(n>0)groups.push({label:l,color:c,value:n});};
-  push("收集箱","#8E8E93",doneT.filter(t=>!t.listId).length);
-  state.lists.forEach(l=>push(l.emoji+l.name,l.color,doneT.filter(t=>t.listId===l.id).length));
-  drawDonut($("#revDonut"),groups);
-  $("#revDonutLegend").innerHTML=groups.length?groups.map(g=>`<span><i style="background:${g.color}"></i>${esc(g.label)} ${g.value}</span>`).join(""):"<span>暂无已完成任务</span>";
-  /* 模块一 完成 vs 计划 */
-  const planS=dates.map(k=>state.tasks.filter(t=>!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
-  const doneS=dates.map(k=>state.tasks.filter(t=>t.done&&!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
-  drawLine($("#revLine"),dayLabels,doneS,planS);
-  /* 模块一 优先级四象限 */
-  const qLabels=["P0 紧急重要","P1 重要","P2 普通","P3 低优"];
-  const qColors=["#C77B6E","#D99A5B","#7FB89A","#9B8EC9"];
-  const qd=[0,1,2,3].map(p=>({label:qLabels[p],color:qColors[p],value:doneT.filter(t=>(t.priority??2)===p).length}));
-  drawDonut($("#revQuad"),qd);
-  $("#revQuadLegend").innerHTML=qd.map(g=>`<span><i style="background:${g.color}"></i>${esc(g.label)} ${g.value}</span>`).join("");
-
-  /* ── 模块二 日程执行复盘 ── */
+  /* ── 日程执行复盘 ── */
   const liftTotal=schedT.length,liftDone=schedDone.length,liftUndone=liftTotal-liftDone;
   const autoNew=state.tasks.filter(t=>!t.abandoned&&t.due&&inRange(t.due)&&t.createdAt&&fmtDate(new Date(t.createdAt))===t.due).length;
   $("#revSchedStats").innerHTML=
@@ -2428,7 +2403,7 @@ function paintReview(dates,isDay,isYear,sig){
   drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9");
   $("#revUtilLegend").innerHTML=`<span>每日排程任务数（时间利用率）</span>`;
 
-  /* ── 模块三 番茄专注复盘 ── */
+  /* ── 番茄专注复盘 ── */
   $("#revFocusStats").innerHTML=
     `<div class="ms"><b>${Math.round(focusMin/6)/10}</b><span>总专注(h)</span></div>`+
     `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
@@ -2440,7 +2415,7 @@ function paintReview(dates,isDay,isYear,sig){
   const focusTrend=dates.map(k=>Math.round(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+r.minutes,0)/6)/10);
   drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0));
 
-  /* ── 模块四 习惯打卡复盘 ── */
+  /* ── 习惯打卡复盘 ── */
   const hd=state.habits.filter(h=>!h.archived).map(h=>{
     let c=0;dates.forEach(ds=>{if(h.checks[ds])c++;});
     let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(h.checks[ds])streak++;else break;}
@@ -2878,7 +2853,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v32";
+  const SW_URL="sw.js?__v=jihua-v33";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
