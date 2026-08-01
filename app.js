@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 33;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 34;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2423,9 +2423,11 @@ function paintReview(dates,isDay,isYear,sig){
   }).sort((a,b)=>b.rate-a.rate);
   $("#revHabitStats").innerHTML=hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>";
 
-  /* 温柔的夸夸 & 改进 */
-  buildPraise({planned,doneT,rate,focusMin,habitDays,prevRate,dates,isYear,isDay});
-  buildImprove({planned,doneT,rate,focusMin,habitDays,dates,isYear,isDay});
+  /* 温柔的夸夸 & 改进：全部基于上面同源计算出的真实数据 */
+  const revCtx={planned,doneT,rate,schedRate,schedDone:liftDone,schedTotal:liftTotal,
+    focusMin,pomoCnt,avgMin,habitRate,habitDays,overdueCnt,prevRate,hd,dates,isYear,isDay};
+  buildPraise(revCtx);
+  buildImprove(revCtx);
   renderRevCal();
   saveReviewCache(cacheKey,{sig,summaryHTML:$("#revSummary").innerHTML});
   save();
@@ -2441,35 +2443,55 @@ function cacheSig(dates){
 function loadReviewCache(k){try{const v=JSON.parse(localStorage.getItem("goalday-review")||"{}");return v[k]||null;}catch(e){return null;}}
 function saveReviewCache(k,obj){try{const v=JSON.parse(localStorage.getItem("goalday-review")||"{}");v[k]=obj;localStorage.setItem("goalday-review",JSON.stringify(v));}catch(e){}}
 function buildPraise(o){
-  const msgs=[];
-  if(o.prevRate!=null&&o.rate>o.prevRate)msgs.push(`完成率比上一周期提升了 <b>${o.rate-o.prevRate}%</b>，稳步推进 🌿`);
-  if(o.rate===100&&o.planned.length>0)msgs.push(`本周期 <b>${o.planned.length}</b> 项任务全部清空，超有执行力 🎉`);
-  if(o.focusMin>=120)msgs.push(`专注总时长达到 <b>${Math.round(o.focusMin/6)/10} 小时</b>，心流状态在线 🍅`);
-  else if(o.focusMin>0)msgs.push(`完成了 <b>${o.focusMin}</b> 分钟专注，慢慢来也很好 🌸`);
-  let maxStreak=0;state.habits.forEach(h=>{const s=streakOf(h);if(s>maxStreak)maxStreak=s;});
-  if(maxStreak>=7)msgs.push(`连续打卡最长 <b>${maxStreak}</b> 天，习惯正在长出来 🌟`);
-  else if(o.habitDays>0)msgs.push(`本周期打卡 <b>${o.habitDays}</b> 天，坚持本身就是进步 💛`);
-  if(!msgs.length)msgs.push("这一周期也许节奏慢了些，但你在认真生活，这就很棒 🌷");
-  $("#revPraise").innerHTML=`<h3 class="ptt">🌟 夸夸你</h3>`+msgs.map(m=>`<p class="pp">${m}</p>`).join("");
+  const m=[];
+  if(o.prevRate!=null&&o.rate>o.prevRate)m.push(`这一周期任务完成率 <b>${o.rate}%</b>，比上一周期提升了 <b>${o.rate-o.prevRate}%</b>——你正看得见地往前走 🌿`);
+  if(o.rate===100&&o.planned.length>0)m.push(`本周期 <b>${o.planned.length}</b> 项任务全部完成，这种说到做到的感觉，很踏实 🎉`);
+  if(o.schedTotal>0){
+    if(o.schedRate>=80)m.push(`排进日程的任务完成了 <b>${o.schedRate}%</b>，计划不是摆设，你真的在执行 🗓️💛`);
+    else if(o.schedDone>0)m.push(`有 <b>${o.schedDone}</b> 项排程任务按时完成，把日子过出了自己的节奏感 ⏰`);
+  }
+  const best=(o.hd&&o.hd.length)?o.hd.reduce((a,b)=>b.streak>a.streak?b:a):null;
+  if(best&&best.streak>=7)m.push(`「${best.h.emoji}${esc(best.h.name)}」已经连续打卡 <b>${best.streak}</b> 天啦，它正在长成你的一部分 🌟`);
+  else if(o.habitDays>0){
+    const top=o.hd.reduce((a,b)=>b.rate>a.rate?b:a,o.hd[0]);
+    if(top)m.push(`「${top.h.emoji}${esc(top.h.name)}」这周期打卡 <b>${top.rate}%</b>，稳稳的，真好 💛`);
+  }
+  if(o.focusMin>=120)m.push(`专注了 <b>${Math.round(o.focusMin/6)/10} 小时</b>，那些不被打扰的时间，是你给自己的礼物 🍅`);
+  else if(o.focusMin>0)m.push(`哪怕只有 <b>${o.focusMin} 分钟</b> 的专注，也是认真对待生活的证据 🌸`);
+  if(!m.length)m.push("这一周期也许慢了一点，但你没有停下来——光是还在记录，就已经很勇敢了 🌷");
+  $("#revPraise").innerHTML=`<h3 class="ptt">🌟 夸夸你</h3>`+m.map(x=>`<p class="pp">${x}</p>`).join("");
 }
 function buildImprove(o){
-  const tips=[];
+  const t=[];
   if(o.planned.length>0&&o.rate<70){
     /* 找出完成率最低的一天（周/月维度） */
-    let worst=null,worstRate=101;
+    let worst=null,wr=101;
     o.dates.forEach(ds=>{
-      const day=state.tasks.filter(t=>!t.abandoned&&t.due===ds);
-      if(day.length){const r=Math.round(day.filter(t=>t.done).length/day.length*100);if(r<worstRate){worstRate=r;worst=ds;}}
+      const day=state.tasks.filter(x=>!x.abandoned&&x.due===ds);
+      if(day.length){const r=Math.round(day.filter(x=>x.done).length/day.length*100);if(r<wr){wr=r;worst=ds;}}
     });
-    if(worst)tips.push(`<b>${md(worst)}</b> 完成率只有 ${worstRate}%，也许是任务排太满啦——下次试着把大任务拆小一点 🧩`);
+    if(worst)t.push(`<b>${md(worst)}</b> 完成率只有 ${wr}%，是不是那天排太满了？下次把大任务拆成小块，会轻松很多 🧩`);
   }
-  if(o.focusMin<60&&!o.isDay)tips.push("专注时长还可以再暖一点，每天锁定一个 25 分钟番茄，慢慢就养成了 🍅");
+  if(o.schedTotal>0&&o.schedRate<60){
+    const undone=o.schedTotal-o.schedDone;
+    t.push(`排程任务只完成了 <b>${o.schedRate}%</b>，有 <b>${undone}</b> 项没赶上——每天先锁定 3 件要事，其余的顺其自然 📌`);
+  }
+  if(o.overdueCnt>0)t.push(`还有 <b>${o.overdueCnt}</b> 项任务逾期了，挑一件最轻的今天收个尾，心里会轻很多 🍃`);
+  /* 打卡最弱的习惯，点名给中肯建议 */
+  if(o.hd&&o.hd.length){
+    const weak=o.hd.reduce((a,b)=>b.rate<a.rate?b:a);
+    if(weak.rate<100&&weak.rate>0)t.push(`「${weak.h.emoji}${esc(weak.h.name)}」这周期只打了 <b>${weak.rate}%</b>，别急着补，明天先续上一天就好——断一天不等于前功尽弃 🌱`);
+    else if(weak.rate===0)t.push(`「${weak.h.emoji}${esc(weak.h.name)}」这周期还没打卡，从明天一个小动作开始，连续几天就能看见变化 🌿`);
+  } else if(o.habitDays===0){
+    t.push(`还没建立习惯打卡？从一件小事开始（比如早起喝杯水），连续几天你就会看见不同 🌿`);
+  }
+  if(o.focusMin<60&&!o.isDay)t.push(`专注时长还可以再暖一点，每天一个 25 分钟番茄，比偶尔突击更管用 🍅`);
   /* 找积压最多的清单 */
   let top=null,topN=0;
-  state.lists.forEach(l=>{const n=state.tasks.filter(t=>t.listId===l.id&&!t.done&&!t.abandoned&&!t.due).length;if(n>topN){topN=n;top=l;}});
-  if(top&&topN>=3)tips.push(`「${esc(top.name)}」里有 <b>${topN}</b> 条还没排进日程，挑 1–2 条先拖到周历上吧 📌`);
-  if(!tips.length)tips.push("目前节奏很舒服，保持住就好，不需要给自己加压 🍃");
-  $("#revImprove").innerHTML=`<h3 class="ptt">💡 可以更好</h3>`+tips.map(t=>`<p class="pp">${t}</p>`).join("");
+  state.lists.forEach(l=>{const n=state.tasks.filter(x=>x.listId===l.id&&!x.done&&!x.abandoned&&!x.due).length;if(n>topN){topN=n;top=l;}});
+  if(top&&topN>=3)t.push(`「${esc(top.name)}」里还有 <b>${topN}</b> 条没排进日程，挑 1–2 条先放进周历，脑子就清爽了 📌`);
+  if(!t.length)t.push(`这一周期节奏挺舒服的，不用给自己加压，保持住就是胜利 🍃`);
+  $("#revImprove").innerHTML=`<h3 class="ptt">💡 可以更好</h3>`+t.map(x=>`<p class="pp">${x}</p>`).join("");
 }
 function renderRevCal(){
   const box=$("#revCal");box.innerHTML="";
@@ -2853,7 +2875,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v33";
+  const SW_URL="sw.js?__v=jihua-v34";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
