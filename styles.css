@@ -1190,9 +1190,8 @@ body{min-height:100vh;min-height:100dvh;transition:background-color .5s ease;}
 .hc-title{font-size:13.5px;font-weight:700;color:var(--ink);flex:1;letter-spacing:.3px;}
 .hc-count{font-size:11px;color:var(--ink-soft);background:var(--bg-soft);border-radius:999px;padding:1px 9px;}
 
-/* 分类按钮（桌面 hover 显示；移动端用右滑） */
-.hcat-btn{flex:none;font-size:16px;padding:6px 7px;border-radius:9px;opacity:0;transition:opacity .15s,background-color .2s;background:var(--bg-soft);border:1px solid var(--line);}
-.hcard:hover .hcat-btn{opacity:1;}
+/* 分类按钮：始终显示在打卡圆圈左侧（不再 hover 才出现） */
+.hcat-btn{flex:none;font-size:16px;padding:6px 7px;border-radius:9px;opacity:1;transition:background-color .2s;background:var(--bg-soft);border:1px solid var(--line);}
 .hcat-btn:active{background:var(--line);}
 
 /* 分类选择弹窗 */
