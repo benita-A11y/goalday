@@ -482,6 +482,22 @@ body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 .scard{flex:1;min-width:96px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 12px;text-align:center;}
 .scard b{display:block;font-size:24px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
 .scard span{font-size:11px;color:var(--ink-soft);margin-top:2px;display:block;}
+/* 复盘：分区标题 / 自律评分 / 模块小统计 / 习惯行 */
+.rev-section-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin:18px 2px 8px;letter-spacing:.3px;}
+.rev-section-title:first-of-type{margin-top:6px;}
+.score-box{display:flex;align-items:center;gap:16px;}
+.score-ring{width:72px;height:72px;border-radius:50%;border:6px solid var(--c,#7FB89A);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:var(--ink);flex:0 0 auto;font-variant-numeric:tabular-nums;}
+.score-meta{font-size:13px;color:var(--ink-soft);}
+.score-meta b{font-size:15px;}
+.mini-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.ms{flex:1;min-width:72px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 6px;text-align:center;}
+.ms b{display:block;font-size:18px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+.ms span{font-size:10.5px;color:var(--ink-soft);margin-top:1px;display:block;}
+.habit-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);}
+.habit-row:last-child{border-bottom:none;}
+.habit-row .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto;}
+.habit-row b{font-size:13.5px;font-weight:600;color:var(--ink);}
+.habit-row .hr{margin-left:auto;font-size:11.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
 
 /* ═══ 打卡 ═══ */
 .sub-tabs{display:flex;background:var(--bg-soft);border:1px solid var(--line);border-radius:10px;padding:3px;margin:0 14px 12px;max-width:300px;}
