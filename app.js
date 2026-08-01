@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 26;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 27;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -1127,6 +1127,63 @@ function initDaySplitter(){
   window.addEventListener("touchmove",move,{passive:false});
   window.addEventListener("mouseup",up);
   window.addEventListener("touchend",up);
+}
+/* 日程（双栏）整体左右拖拽切换日期：仅追加手势，不新增 UI/逻辑；阻尼+回弹复用 App 触控手感。
+   规则：纵向手势放行原生滚动；横向手势才接管并 translateX；落在任务项/时间块/分栏把手/按钮上不触发，避免与拖拽排程、分栏拖动冲突。 */
+function initDaySwipe(){
+  const wrap=$("#dlCols"); if(!wrap)return;
+  let tracking=false, decided=null, sx=0, sy=0, dx=0, dy=0, w=0;
+  const DIR=8;                                   // 方向判定阈值(px)
+  const px=e=>(e.touches&&e.touches[0])?e.touches[0].clientX:e.clientX;
+  const py=e=>(e.touches&&e.touches[0])?e.touches[0].clientY:e.clientY;
+  const onDown=e=>{
+    if(e.target.closest(".dl-item, .tl-block, #dlDivider, button, select, input, textarea, a"))return;
+    tracking=true; decided=null; dx=0; dy=0;
+    sx=px(e); sy=py(e);
+    w=wrap.getBoundingClientRect().width||wrap.offsetWidth||1;
+  };
+  const onMove=e=>{
+    if(!tracking)return;
+    dx=px(e)-sx; dy=py(e)-sy;
+    if(decided===null){
+      if(Math.abs(dx)<DIR && Math.abs(dy)<DIR)return;
+      decided=Math.abs(dx)>Math.abs(dy)?"H":"V";
+      if(decided==="V"){ tracking=false; return; }   // 纵向→交给原生滚动
+    }
+    if(decided!=="H")return;
+    if(e.cancelable)e.preventDefault();
+    let off=dx; const limit=w*0.5;                    // 越界阻尼（回弹手感）
+    if(Math.abs(off)>limit){ const over=Math.abs(off)-limit; off=Math.sign(off)*(limit+over*0.25); }
+    wrap.style.transition="none";
+    wrap.style.transform="translateX("+off+"px)";
+  };
+  const finish=()=>{
+    if(decided!=="H"){ tracking=false; return; }
+    tracking=false;
+    const TH=Math.max(50, w*0.16);                   // 切换阈值
+    wrap.style.transition="transform .26s cubic-bezier(.22,.61,.36,1)";
+    if(dx<=-TH) commitDay(1);                         // 左滑→后一日
+    else if(dx>=TH) commitDay(-1);                    // 右滑→前一日
+    else wrap.style.transform="translateX(0)";        // 未过阈值→回弹
+  };
+  const commitDay=delta=>{
+    state.dayDate=addDays(state.dayDate||todayStr(), delta);
+    renderDay();                                     // 时间轴 + 今日清单同步刷新
+    const ww=wrap.getBoundingClientRect().width||w||1;
+    wrap.style.transition="none";
+    wrap.style.transform="translateX("+(delta>0?ww:-ww)+"px)"; // 新内容从对应方向进入
+    void wrap.offsetWidth;                           // 强制回流
+    wrap.style.transition="transform .26s cubic-bezier(.22,.61,.36,1)";
+    wrap.style.transform="translateX(0)";
+    save();
+  };
+  wrap.addEventListener("mousedown",onDown);
+  wrap.addEventListener("touchstart",onDown,{passive:false});
+  window.addEventListener("mousemove",onMove);
+  window.addEventListener("touchmove",onMove,{passive:false});
+  window.addEventListener("mouseup",finish);
+  window.addEventListener("touchend",finish);
+  window.addEventListener("touchcancel",finish);
 }
 /* 左栏：时间轴——逐小时刻度 + 已排程任务块（重叠并排）+ 当前时间红线 + 空时段占位 */
 function renderDayTimeline(ds){
@@ -2815,7 +2872,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v26";
+  const SW_URL="sw.js?__v=jihua-v27";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -2851,6 +2908,7 @@ if(state.settings.scheme&&SCHEME_REGISTRY[state.settings.scheme])applyScheme(sta
 applyAccent();
 initSplitter();
 initDaySplitter();
+initDaySwipe();
 if((state.activeTab||"todo")==="todo")state.todoLayer="inbox";   /* 待办模块首页 = 灵感收集箱 */
 switchTab(state.activeTab||"todo");
 if(toastLater)setTimeout(()=>toast(toastLater),600);
