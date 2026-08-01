@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 35;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 36;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2340,26 +2340,16 @@ function renderReview(){
   $$("#revDims button").forEach(b=>b.classList.toggle("active",b.dataset.d===state.reviewDim));
   const {dates,label,isDay,isYear}=revRange();
   $("#revRangeLabel").textContent=label;
-  const sig=cacheSig(dates);
-  const cacheKey="review:"+state.reviewDim;
-  /* 1) 优先读本地缓存：0 延迟即时呈现（与源数据一致时直接展示） */
-  const cached=loadReviewCache(cacheKey);
-  if(cached&&cached.sig===sig){
-    $("#revSummary").innerHTML=cached.summaryHTML;
-  }
-  /* 2) 骨架屏：浅灰呼吸块，待数据就绪后渐现 */
   const dataView=$("#dataView");
-  dataView.classList.add("loading");
-  /* 3) 后台异步重算（始终从 state 同源计算，保证准确），再淡入替换 */
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    paintReview(dates,isDay,isYear,sig);
-    dataView.classList.remove("loading");
-    ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
-  }));
+  dataView.classList.remove("loading");   /* 确保骨架屏不残留，进入即见最新数据 */
+  /* 每次进入都从 state 同源重新计算：数据最新、精准、跨模块一致，绝不读陈旧缓存 */
+  paintReview(dates,isDay,isYear);
+  /* 图表淡入，便于察觉已刷新 */
+  ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
 }
-/* 复盘数据始终从 state 同源计算 → 与周视图/打卡/专注三方一致 */
-function paintReview(dates,isDay,isYear,sig){
-  const cacheKey="review:"+state.reviewDim;
+/* 复盘数据始终从 state 同源计算 → 与周视图/打卡/专注三方一致、跨模块数字一致 */
+function paintReview(dates,isDay,isYear){
+  const hrs=m=>Math.round(m/6)/10;   /* 分钟→小时，统一四舍五入；概览与专注模块共用，保证数字一致 */
   const inRange=ds=>ds&&(isYear?dates.includes(ds.slice(0,7)):dates.includes(ds));
   const dayLabels=isYear?dates.map(m=>+m.slice(5)+"月"):dates.map(ds=>isDay?ds.slice(5).replace("-","/"):+ds.slice(8));
   const rangeLen=dates.length||1;
@@ -2387,7 +2377,7 @@ function paintReview(dates,isDay,isYear,sig){
   $("#revSummary").innerHTML=
     `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
     `<div class="scard"><b>${schedRate}%</b><span>日程达标率 🗓️</span></div>`+
-    `<div class="scard"><b>${Math.round(focusMin/6)/10}</b><span>专注小时 ⏱️</span></div>`+
+    `<div class="scard"><b>${hrs(focusMin)}</b><span>专注小时 ⏱️</span></div>`+
     `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
     `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
     `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`;
@@ -2405,14 +2395,14 @@ function paintReview(dates,isDay,isYear,sig){
 
   /* ── 番茄专注复盘 ── */
   $("#revFocusStats").innerHTML=
-    `<div class="ms"><b>${Math.round(focusMin/6)/10}</b><span>总专注(h)</span></div>`+
+    `<div class="ms"><b>${hrs(focusMin)}</b><span>总专注(h)</span></div>`+
     `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
     `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`;
   const wk=[0,0,0,0,0,0,0];
   recs.forEach(r=>{const d=new Date(r.date+"T00:00:00");const i=(d.getDay()+6)%7;if(i>=0&&i<7)wk[i]+=r.minutes;});
-  drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>Math.round(m/6)/10),"#6F9FD6");
+  drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6");
   $("#revFocusHeatLegend").innerHTML=`<span>各星期专注时长(h) · 黄金时段一目了然</span>`;
-  const focusTrend=dates.map(k=>Math.round(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+r.minutes,0)/6)/10);
+  const focusTrend=dates.map(k=>hrs(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+r.minutes,0)));
   drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0));
 
   /* ── 习惯打卡复盘 ── */
@@ -2429,19 +2419,7 @@ function paintReview(dates,isDay,isYear,sig){
   buildPraise(revCtx);
   buildImprove(revCtx);
   renderRevCal();
-  saveReviewCache(cacheKey,{sig,summaryHTML:$("#revSummary").innerHTML});
-  save();
 }
-/* 复盘缓存签名：数据变化即失效，确保准确性 */
-function cacheSig(dates){
-  let s=0;
-  state.tasks.forEach(t=>{if(!t.abandoned&&dates.indexOf(t.due)>=0)s+=(t.done?2:1);});
-  state.habits.forEach(h=>dates.forEach(d=>{if(h.checks[d])s++;}));
-  state.pomo.records.forEach(r=>{if(dates.indexOf(r.date)>=0)s+=r.minutes;});
-  return s;
-}
-function loadReviewCache(k){try{const v=JSON.parse(localStorage.getItem("goalday-review")||"{}");return v[k]||null;}catch(e){return null;}}
-function saveReviewCache(k,obj){try{const v=JSON.parse(localStorage.getItem("goalday-review")||"{}");v[k]=obj;localStorage.setItem("goalday-review",JSON.stringify(v));}catch(e){}}
 function buildPraise(o){
   const m=[];
   if(o.prevRate!=null&&o.rate>o.prevRate)m.push(`这一周期任务完成率 <b>${o.rate}%</b>，比上一周期提升了 <b>${o.rate-o.prevRate}%</b>——你正看得见地往前走 🌿`);
@@ -2875,7 +2853,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v35";
+  const SW_URL="sw.js?__v=jihua-v36";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
