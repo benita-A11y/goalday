@@ -162,27 +162,27 @@ h1,h3,h4{margin:0;}
 .view-bar{
   position:sticky;top:env(safe-area-inset-top,0);z-index:5;
   background:var(--bar);
-  padding:calc(14px + env(safe-area-inset-top)) 18px 12px;
+  padding:calc(8px + env(safe-area-inset-top)) 14px 6px;
   border-bottom:.5px solid var(--line);
 }
-.view-bar .vrow1{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
-.view-bar .wk-title{font-size:15px;font-weight:700;margin-left:2px;letter-spacing:-.2px;}
-.view-bar .vrow1 .icon-btn{padding:3px 7px;font-size:17px;}
+.view-bar .vrow1{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.view-bar .wk-title{font-size:14px;font-weight:700;margin-left:2px;letter-spacing:-.2px;}
+.view-bar .vrow1 .icon-btn{padding:2px 6px;font-size:16px;}
 .view-bar .wk-label{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;}
 .view-bar .wk-swap{font-size:14px;color:var(--ink-soft);padding:2px 4px;cursor:pointer;}
 /* 双栏始终同时可见，不再提供「周计划/清单」页签切换（避免拆页错觉） */
 .view-bar .wtabs{display:none;}
 .view-bar .wtabs button.active{color:var(--ink);font-weight:600;}
 .view-bar .wtabs button.active::after{content:"";position:absolute;left:0;right:0;bottom:-12px;height:2px;background:var(--ink);border-radius:2px;}
-.view-bar .vrow2{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink-soft);font-weight:500;}
-.view-bar .vrow2 .round-btn{width:26px;height:26px;border-radius:50%;background:transparent;color:var(--ink);font-size:16px;font-weight:500;}
+.view-bar .vrow2{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);font-weight:500;}
+.view-bar .vrow2 .round-btn{width:22px;height:22px;border-radius:50%;background:transparent;color:var(--ink);font-size:14px;font-weight:500;}
 .view-bar .vrow2 .round-btn:active{background:rgba(0,0,0,.06);}
-.view-bar .vrow2 .mini-btn{font-size:12px;color:var(--ink-soft);font-weight:500;padding:2px 8px;border-radius:6px;}
+.view-bar .vrow2 .mini-btn{font-size:11px;color:var(--ink-soft);font-weight:500;padding:2px 6px;border-radius:6px;}
 
 /* 视图切换 tabs（仅 日视图/周视图 两种） */
-.view-switch{display:flex;gap:0;padding:calc(10px + env(safe-area-inset-top)) 18px 6px;background:var(--bar);}
+.view-switch{display:flex;gap:0;padding:calc(5px + env(safe-area-inset-top)) 14px 3px;background:var(--bar);}
 .view-switch button{
-  font-size:12.5px;color:var(--ink-soft);font-weight:500;padding:6px 0;margin-right:18px;
+  font-size:11.5px;color:var(--ink-soft);font-weight:500;padding:4px 0;margin-right:14px;
   position:relative;
 }
 .view-switch button.active{color:var(--ink);font-weight:600;}
@@ -373,19 +373,19 @@ body.view-full #fabView{transform:rotate(90deg);}
 
 /* ═══ 单日清单（双栏时间轴）视图 ═══ */
 .dl-hint{font-size:11.5px;color:var(--ink-soft);padding:2px 14px 8px;line-height:1.5;}
-.dl-cols{display:flex;gap:0;flex:1 1 auto;min-height:0;padding:0 12px 12px;align-items:stretch;}
+.dl-cols{display:flex;gap:0;flex:1 1 auto;min-height:0;padding:0 14px 12px;align-items:stretch;}
 .dl-left{flex:0 0 68%;min-width:0;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
-.dl-left .tl-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 6px 10px;background:var(--bg-soft);border-radius:0 0 14px 14px;}
+.dl-left .tl-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 4px 8px;background:var(--bg-soft);border-radius:0 0 14px 14px;}
 .dl-left .tl-scroll::-webkit-scrollbar,.dl-right .dl-pool::-webkit-scrollbar{width:4px;}
 .dl-left .tl-scroll::-webkit-scrollbar-thumb,.dl-right .dl-pool::-webkit-scrollbar-thumb{background:rgba(120,110,100,.35);border-radius:4px;}
 .dl-left .tl-scroll::-webkit-scrollbar-track,.dl-right .dl-pool::-webkit-scrollbar-track{background:transparent;}
-.dl-left-head,.dl-right-head{font-size:12.5px;font-weight:700;color:var(--ink);padding:10px 12px 6px;display:flex;align-items:center;gap:6px;}
+.dl-left-head,.dl-right-head{font-size:12.5px;font-weight:700;color:var(--ink);padding:7px 12px 5px;display:flex;align-items:center;gap:6px;}
 .dl-left-head .tl-range{font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-left:6px;}
 .dl-right{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
 .dl-right-head{justify-content:space-between;}
 .dl-rh-ico{margin-right:auto;}
 .dl-sel{max-width:46%;font-size:12px;padding:3px 6px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);}
-.dl-pool{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 10px 10px;display:flex;flex-direction:column;gap:8px;}
+.dl-pool{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 8px 8px;display:flex;flex-direction:column;gap:8px;}
 .dl-item{display:flex;align-items:flex-start;gap:8px;padding:10px 11px;border-radius:12px;background:var(--bg-soft);border:1px solid var(--line);}
 .dl-item .dl-st{flex:none;font-size:16px;line-height:1.1;cursor:pointer;margin-top:1px;user-select:none;}
 .dl-item .dl-main{flex:1;min-width:0;}
@@ -403,7 +403,7 @@ body.view-full #fabView{transform:rotate(90deg);}
 .dl-item.dragging-source{opacity:.35;}
 
 /* 可拖拽分隔线：4px 宽，悬停/拖动显示双向箭头与主题色手柄 */
-.dl-divider{flex:0 0 4px;align-self:stretch;cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent;position:relative;touch-action:none;}
+.dl-divider{flex:0 0 3px;align-self:stretch;cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent;position:relative;touch-action:none;}
 .dl-divider::before{content:"";position:absolute;top:8px;bottom:8px;width:3px;border-radius:99px;background:var(--line);transition:background .15s,box-shadow .15s;}
 .dl-divider:hover::before,.dl-divider.active::before{background:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent);}
 .dl-divider span{position:absolute;width:3px;height:30px;border-radius:99px;background:transparent;transition:background .15s;}
@@ -434,11 +434,11 @@ body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 .tl24{position:relative;width:100%;min-height:calc(24 * 44px);}   /* v24: 显式 min-height 兜底；子元素全 absolute 需要容器自身有高 */
 .tl24-hours{min-height:calc(24 * 44px);}                          /* v24: 高度跟随容器；absolute inset:0 自身撑不开 */
 /* 窄时间轴：最左侧 40px 竖条，右侧细灰分隔线；任务区整体右移让出这条窄轴 */
-.tl24-hours{position:absolute;left:0;top:0;width:40px;right:auto;border-right:1px solid var(--line);z-index:1;pointer-events:none;}
+.tl24-hours{position:absolute;left:0;top:0;width:40px;right:auto;border-right:1px solid var(--line);z-index:1;pointer-events:none;border-radius:0;}
 .tl24-blocks{position:absolute;left:42px;right:0;top:0;z-index:2;pointer-events:none;}      /* 容器穿透，任务块本身接收事件；右移避开窄时间轴 */
 .tl24-blocks .tb{pointer-events:auto;}
-.tl-hour{position:absolute;left:0;right:0;height:44px;border-top:1px solid #E2DBD2;display:flex;align-items:flex-start;gap:0;padding:2px 0 0 0;box-sizing:border-box;}
-.tl-h-t{font-size:11px;color:#B8AEAB;font-weight:600;flex:none;width:34px;text-align:right;user-select:none;font-variant-numeric:tabular-nums;line-height:1.4;letter-spacing:.2px;}
+.tl-hour{position:absolute;left:0;right:0;height:44px;border-top:1px solid #E2DBD2;display:flex;align-items:flex-start;gap:0;padding:2px 0 0 0;box-sizing:border-box;border-radius:0;}
+.tl-h-t{font-size:11px;color:#B8AEAB;font-weight:600;flex:none;width:34px;text-align:right;user-select:none;font-variant-numeric:tabular-nums;line-height:1.4;letter-spacing:.2px;border-radius:0;}
 .tl-h-empty{font-size:11px;color:#C8BFB8;border:1px dashed rgba(150,140,130,.28);border-radius:8px;flex:1 1 auto;height:calc(44px - 8px);display:flex;align-items:center;padding-left:8px;opacity:.7;}
 .tl-ghost{position:fixed;z-index:999;pointer-events:none;opacity:.92;box-shadow:0 8px 22px rgba(0,0,0,.22);border-radius:12px;background:var(--bg-soft);border:1px solid var(--line);padding:10px 11px;font-size:13.5px;font-weight:600;color:var(--ink);}
 /* 已排程任务块 */
@@ -459,7 +459,7 @@ body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 .tl-now{position:absolute;left:42px;right:0;height:0;border-top:2px solid #FF6B6B;z-index:4;pointer-events:none;}
 .tl-now::before{content:"";position:absolute;left:0;top:-4px;width:8px;height:8px;border-radius:50%;background:#FF6B6B;}
 /* 右池空态 */
-.dl-empty-tip{color:var(--ink-soft);font-size:13px;text-align:center;padding:28px 16px;line-height:1.7;}
+.dl-empty-tip{color:var(--ink-soft);font-size:12px;text-align:center;padding:22px 14px;line-height:1.7;}
 
 /* ═══ 专注 ═══ */
 .focus-body{display:flex;flex-direction:column;align-items:center;gap:18px;padding:24px 18px 0;}
@@ -895,7 +895,7 @@ img.emoji{height:1.15em;width:1.15em;vertical-align:-.18em;margin:0 .02em;}
 .tc-empty{font-size:12.5px;color:var(--ink-soft);line-height:1.8;}
 
 /* 周计划 · 日期范围按钮 */
-.wk-range{border:0;background:var(--bg-soft);color:var(--ink);font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:999px;cursor:pointer;white-space:nowrap;}
+.wk-range{border:0;background:var(--bg-soft);color:var(--ink);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;cursor:pointer;white-space:nowrap;}
 .wk-range:active{background:var(--line);}
 
 /* 周计划日历浮窗 */
@@ -1387,7 +1387,9 @@ body.no-scroll{overflow:hidden;}
    顶部：日期 + 任务总数；下方：任务纵向列表（复用 .dd-row 上一版行样式）
    ═══════════════════════════════════════════════════════════ */
 #dayWrap:not([hidden]){display:flex;flex-direction:column;min-height:0;}
-#dayWrap .sub-head{flex:0 0 auto;}
+#dayWrap .sub-head{flex:0 0 auto;margin:3px 0 4px;}
+#dayWrap .day-head-date{font-size:14px;font-weight:700;color:var(--ink);line-height:1.2;}
+#dayWrap .day-head-count{font-size:11.5px;color:var(--ink-soft);font-weight:500;margin-left:6px;line-height:1.2;}
 .dl-one{
   flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;
   margin:4px 12px 12px;background:var(--bg);border:1px solid var(--line);
