@@ -329,9 +329,12 @@ body.view-full #fabView{transform:rotate(90deg);}
 .tl-scroll{padding:0 14px calc(var(--tabbar-h) + 20px + env(safe-area-inset-bottom));}
 .tl24{
   position:relative;background:var(--bg);border-radius:var(--r);box-shadow:var(--shadow);
-  overflow:hidden;
+  overflow:visible;     /* v24: 旧版 overflow:hidden 会把 absolute 子元素裁掉；现在交给 .tl-scroll 容器裁 */
 }
-.tl24-hours{position:absolute;inset:0;pointer-events:none;}
+/* 注：原 `.tl24-hours{inset:0}` 是已废弃的"全屏覆盖"时间轴样式（v22 之前）。
+   v22 双栏改造后被 `.tl24-hours{position:absolute;left:0;top:0;width:40px;...}` 覆盖为窄条 40px 容器。
+   这里保留一套不冲突的 fallback，避免上游文件重新引入 inset:0 时静默生效。 */
+.tl24-hours{position:absolute;left:0;top:0;width:40px;right:auto;pointer-events:none;z-index:1;min-height:calc(24 * 44px);}
 .tl-hr{position:absolute;left:0;right:0;height:0;border-top:.5px solid var(--line);}
 .tl-hr .hlab{
   position:absolute;left:8px;top:-7px;font-size:10.5px;color:var(--ink-3);font-weight:500;
@@ -428,7 +431,8 @@ body.col-resizing{cursor:col-resize;user-select:none;-webkit-user-select:none;}
 }
 
 /* ── 双栏时间轴内部（v22）：刻度 / 任务块 / 当前红线 / 空占位 ── */
-.tl24{position:relative;width:100%;}
+.tl24{position:relative;width:100%;min-height:calc(24 * 44px);}   /* v24: 显式 min-height 兜底；子元素全 absolute 需要容器自身有高 */
+.tl24-hours{min-height:calc(24 * 44px);}                          /* v24: 高度跟随容器；absolute inset:0 自身撑不开 */
 /* 窄时间轴：最左侧 40px 竖条，右侧细灰分隔线；任务区整体右移让出这条窄轴 */
 .tl24-hours{position:absolute;left:0;top:0;width:40px;right:auto;border-right:1px solid var(--line);z-index:1;pointer-events:none;}
 .tl24-blocks{position:absolute;left:42px;right:0;top:0;z-index:2;pointer-events:none;}      /* 容器穿透，任务块本身接收事件；右移避开窄时间轴 */
