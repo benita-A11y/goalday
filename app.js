@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 25;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 26;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -1066,7 +1066,6 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dayDetailOpen)close
 const TL_HOUR_H=44, TL_SNAP=30;            /* 每小时像素高 · 吸附分钟（供时间块拖拽复用） */
 const TL_START=0, TL_END=23, TL0=TL_START*60;   /* 时间轴范围 00:00–23:00（24 小时制，手帐风格） */
 let tlMoved=false;               /* 拖动后抑制 click 误触 */
-$("#dayBack").addEventListener("click",()=>{state.viewMode="week";renderView();save();});
 $("#dlListSel").addEventListener("change",e=>{state.poolList=e.target.value;renderDayPool();save();});
 function hm2min(s){if(!s)return null;const m=/^(\d{1,2}):(\d{2})/.exec(String(s));return m?(+m[1])*60+(+m[2]):null;}
 function min2hm(m){m=Math.max(0,Math.min(1439,Math.round(m)));return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
@@ -2816,7 +2815,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v25";
+  const SW_URL="sw.js?__v=jihua-v26";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
