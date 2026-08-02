@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 47;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 48;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2334,6 +2334,21 @@ function roundRect(ctx,x,y,w,h,r){
 
 /* ═══════════ Tab4 复盘（视图 + 统计 合并） ═══════════ */
 $$("#revDims button").forEach(b=>b.addEventListener("click",()=>{state.reviewDim=b.dataset.d;renderReview();save();}));
+/* v48：复盘 ‹ › 箭头切换周期（替代已移除的日期选择器） */
+$("#revPrev").addEventListener("click",()=>{
+  const d=revAnchorDate();
+  if(state.reviewDim==="week")d.setDate(d.getDate()-7);
+  else if(state.reviewDim==="month")d.setMonth(d.getMonth()-1);
+  else d.setFullYear(d.getFullYear()-1);
+  state.reviewAnchor=fmtDate(d);renderReview();save();
+});
+$("#revNext").addEventListener("click",()=>{
+  const d=revAnchorDate();
+  if(state.reviewDim==="week")d.setDate(d.getDate()+7);
+  else if(state.reviewDim==="month")d.setMonth(d.getMonth()+1);
+  else d.setFullYear(d.getFullYear()+1);
+  state.reviewAnchor=fmtDate(d);renderReview();save();
+});
 /* v44：复盘周期锚点 —— reviewAnchor 是一个日期字符串，周/月/年均以它为基准计算；
    null 或空串时回退到今天。切 tab 不重置锚点，手动选周期才更新。 */
 function revAnchorDate(){
@@ -2376,7 +2391,7 @@ function renderReview(manual){
   if(manual){
     const btn=$("#revRefresh"); if(btn)btn.classList.add("spinning");
   }else{
-    toast("正在加载哦...");
+    toast("📊 正在加载复盘数据...");
     dataView.classList.add("rev-skel");   /* v44：切换 tab 时骨架占位，不空白 */
   }
   const loadingGuard=setTimeout(()=>{
@@ -2392,7 +2407,6 @@ function renderReview(manual){
       ensurePanelsNotEmpty();
       ok=true;
       if(manual) setTimeout(()=>toast("✅数据已刷新，为最新版本"),200);
-      else setTimeout(()=>toast("已更新 ✨"),500);
     }catch(err){
       console.error("复盘渲染失败",err); revFatal(err);
       if(manual) setTimeout(()=>toast("⚠️刷新失败，请重试"),200);
@@ -3170,7 +3184,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v47";
+  const SW_URL="sw.js?__v=jihua-v48";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */

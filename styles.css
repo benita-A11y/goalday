@@ -570,7 +570,10 @@ canvas{width:100%;display:block;}
 #page-review.active{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;padding:0;max-width:1080px;margin:0 auto;}
 #page-review .page-head,#page-review .sub-tabs{flex:0 0 auto;}
 #page-review .scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateZ(0);will-change:transform;padding:0 14px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);gap:12px;}
-.rev-range{font-size:13px;color:var(--ink-soft);font-weight:600;padding:4px 2px 2px;}
+.rev-range-row{display:flex;align-items:center;justify-content:center;gap:2px;padding:4px 2px 2px;}
+.rev-range{font-size:13px;color:var(--ink-soft);font-weight:600;padding:0;}
+.rev-nav{font-size:22px;color:var(--ink-soft);cursor:pointer;padding:0 10px;border-radius:6px;user-select:none;line-height:1;transition:background .15s;-webkit-tap-highlight-color:transparent;}
+.rev-nav:active{background:var(--bg-soft);}
 .praise,.improve{position:relative;}
 .praise{border-color:var(--accent);background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,var(--bg)),var(--bg));}
 .improve{border-color:var(--line);}
