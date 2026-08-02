@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 40;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 41;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2354,28 +2354,56 @@ function renderReview(){
   const oldErr=dataView.querySelector(".rev-error"); if(oldErr)oldErr.remove();   /* 数据正常时不残留错误条 */
   let range;
   try{ range=revRange(); }
-  catch(err){ console.error("复盘取数失败",err); revFatal(); return; }
+  catch(err){ console.error("复盘取数失败",err); revFatal(err); return; }
   $("#revRangeLabel").textContent=range.label||"";
   dataView.classList.add("loading");   /* 轻量加载态：先骨架屏，下一帧再渲染真实数据 */
+  /* v41：兜底超时——3 秒后无论 paintReview 是否完成，强制撤掉 loading 防卡白屏 */
+  const loadingGuard=setTimeout(()=>{
+    const dv2=$("#dataView");
+    if(dv2.classList.contains("loading")){
+      console.warn("[复盘] 渲染超时（>3s），强制撤掉 loading");
+      dv2.classList.remove("loading");
+    }
+  },3000);
   requestAnimationFrame(()=>{
     try{
       /* 每次进入都从 state 同源重新计算：数据最新、精准、跨模块一致，绝不读陈旧缓存 */
       paintReview(range.dates,range.isDay,range.isYear);
       ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
+      /* v41：渲染后兜底——若关键面板仍为空（说明前面异常被 try/catch 吞了），强制写兜底文案 */
+      ensurePanelsNotEmpty();
     }catch(err){
-      console.error("复盘渲染失败",err); revFatal();
+      console.error("复盘渲染失败",err); revFatal(err);
     }finally{
+      clearTimeout(loadingGuard);
       dataView.classList.remove("loading");   /* 无论成败都撤掉骨架，绝不卡白屏 */
     }
   });
 }
 /* 数据/渲染异常兜底：保留顶部标题与周月年 tab，仅用友好文案替代空白 */
-function revFatal(){
+function revFatal(err){
   const dv=$("#dataView"); dv.classList.remove("loading");
   if(dv.querySelector(".rev-error"))return;
   const p=document.createElement("div"); p.className="panel rev-error";
-  p.innerHTML=`<h3 class="ptt">🫧 数据读取出现了一点小状况</h3><p class="pp">你的记录都还在，别担心。点右上角 ↻ 重新刷新一下，或稍后再来看看～</p>`;
+  /* v41：带上具体错误信息便于排查（用户可长按截图给我看） */
+  const msg=err?(err.message||String(err)):"未知错误";
+  p.innerHTML=`<h3 class="ptt">🫧 数据读取出现了一点小状况</h3><p class="pp">你的记录都还在，别担心。点右上角 ↻ 重新刷新一下，或稍后再来看看～</p><p class="pp" style="font-size:11px;color:var(--muted);margin-top:6px;">诊断：${esc(msg).slice(0,200)}</p>`;
   dv.prepend(p);
+}
+/* v41：渲染兜底——若关键面板写完后 innerHTML 仍是空（说明对应 try 块静默抛错），强制写一条友好提示，绝不留白 */
+function ensurePanelsNotEmpty(){
+  const fallback=`<div class="rev-empty">该模块暂未显示，点右上角 ↻ 刷新或稍后再试 ✨</div>`;
+  [
+    ["#revSummary","#revSummary"],
+    ["#revSchedStats","#revSchedStats"],
+    ["#revFocusStats","#revFocusStats"],
+    ["#revHabitStats","#revHabitStats"],
+    ["#revPraise","#revPraise"],
+    ["#revImprove","#revImprove"],
+  ].forEach(([id,_])=>{
+    const el=$(id); if(!el)return;
+    if(!el.innerHTML||el.innerHTML.trim()==="")el.innerHTML=fallback;
+  });
 }
 /* 空状态文案（纯文字，无图片）：模块无数据时展示在图表区，卡片外壳与标题保留 */
 const REV_EMPTY_TIP="该周期暂时还没有记录哦，开始行动之后就会生成复盘数据✨";
@@ -2388,80 +2416,98 @@ function paintReview(dates,isDay,isYear){
   const inRange=ds=>ds&&(isYear?dates.includes(ds.slice(0,7)):dates.includes(ds));
   const dayLabels=isYear?dates.map(m=>+m.slice(5)+"月"):dates.map(ds=>isDay?ds.slice(5).replace("-","/"):+ds.slice(8));
   const rangeLen=dates.length||1;
-  const tasks=(state.tasks||[]).filter(t=>t&&typeof t==="object");   /* v40：先剔除脏项，后续访问不再判 null */
-  const habits=(state.habits||[]).filter(h=>h&&typeof h==="object");
-  const lists=(state.lists||[]).filter(l=>l&&typeof l==="object");
-  const records=((state.pomo&&state.pomo.records)||[]).filter(r=>r&&typeof r==="object");
-  /* 任务 */
-  const planned=tasks.filter(t=>!t.abandoned&&inRange(t.due));
-  const doneT=planned.filter(t=>t.done);
-  const schedT=planned.filter(t=>t.time);          // 真正落到时间轴的排程
-  const schedDone=schedT.filter(t=>t.done);
-  const liftTotal=schedT.length,liftDone=schedDone.length,liftUndone=liftTotal-liftDone;
-  const autoNew=tasks.filter(t=>!t.abandoned&&t.due&&inRange(t.due)&&t.createdAt&&fmtDate(new Date(t.createdAt))===t.due).length;
-  const rate=planned.length?Math.round(doneT.length/planned.length*100):0;
-  const schedRate=schedT.length?Math.round(schedDone.length/schedT.length*100):0;
-  /* 专注 */
-  const recs=records.filter(r=>isYear?dates.includes(r.date.slice(0,7)):dates.includes(r.date));
-  const focusMin=recs.reduce((s,r)=>s+(+r.minutes||0),0);
-  const pomoCnt=recs.length;
-  const avgMin=pomoCnt?Math.round(focusMin/pomoCnt):0;
-  /* 习惯 */
-  let habitDays=0;dates.forEach(ds=>{if(habits.some(h=>(h.checks||{})[ds]))habitDays++;});
-  const habitRate=Math.round(habitDays/rangeLen*100);
-  /* 附加 */
-  const overdueCnt=tasks.filter(t=>!t.abandoned&&!t.done&&t.due&&t.due<todayStr()&&inRange(t.due)).length;
-  const prevRate=rateOf(revRangeShifted(state.reviewDim),isYear);
-  const trend=(prevRate==null)?"":(rate>prevRate?` ↑${rate-prevRate}%`:rate<prevRate?` ↓${prevRate-rate}%`:" 持平");
+  const tasks=Array.isArray(state.tasks)?state.tasks.filter(t=>t&&typeof t==="object"):[];
+  const habits=Array.isArray(state.habits)?state.habits.filter(h=>h&&typeof h==="object"):[];
+  const lists=Array.isArray(state.lists)?state.lists.filter(l=>l&&typeof l==="object"):[];
+  const records=(state.pomo&&Array.isArray(state.pomo.records))?state.pomo.records.filter(r=>r&&typeof r==="object"):[];
 
+  /* v41：所有计算放进 try/catch，任意一行抛错都用 0/[] 兜底，确保后续面板仍能渲染，绝不空白 */
+  let planned=[],doneT=[],schedT=[],schedDone=[];
+  let liftTotal=0,liftDone=0,liftUndone=0,autoNew=0,rate=0,schedRate=0;
+  let recs=[],focusMin=0,pomoCnt=0,avgMin=0;
+  let habitDays=0,habitRate=0,overdueCnt=0,prevRate=null,trend="";
+  let utilVals=[],wk=[0,0,0,0,0,0,0],focusTrend=[];
+  let hd=[];
+  try{
+    planned=tasks.filter(t=>t.due && inRange(t.due));
+    doneT=planned.filter(t=>t.done);
+    schedT=planned.filter(t=>t.time);
+    schedDone=schedT.filter(t=>t.done);
+    liftTotal=schedT.length; liftDone=schedDone.length; liftUndone=liftTotal-liftDone;
+    autoNew=tasks.filter(t=>{
+      if(!t.due||!inRange(t.due)||!t.createdAt)return false;
+      try{return fmtDate(new Date(t.createdAt))===t.due;}catch(e){return false;}
+    }).length;
+    rate=planned.length?Math.round(doneT.length/planned.length*100):0;
+    schedRate=schedT.length?Math.round(schedDone.length/schedT.length*100):0;
+    /* 专注 */
+    recs=records.filter(r=>r.date && (isYear?dates.includes(String(r.date).slice(0,7)):dates.includes(r.date)));
+    focusMin=recs.reduce((s,r)=>s+(+(r&&r.minutes)||0),0);
+    pomoCnt=recs.length;
+    avgMin=pomoCnt?Math.round(focusMin/pomoCnt):0;
+    /* 习惯 */
+    habitDays=0;
+    dates.forEach(ds=>{if(habits.some(h=>((h.checks||{})[ds])))habitDays++;});
+    habitRate=Math.round(habitDays/rangeLen*100);
+    /* 附加 */
+    overdueCnt=tasks.filter(t=>!t.done && t.due && t.due<todayStr() && inRange(t.due)).length;
+    try{ prevRate=rateOf(revRangeShifted(state.reviewDim),isYear); }catch(e){ prevRate=null; }
+    trend=(prevRate==null)?"":(rate>prevRate?` ↑${rate-prevRate}%`:rate<prevRate?` ↓${prevRate-rate}%`:" 持平");
+    /* 图表数据 */
+    utilVals=dates.map(k=>tasks.filter(t=>t.due && !t.abandoned && (isYear?t.due.slice(0,7)===k:t.due===k)).length);
+    wk=[0,0,0,0,0,0,0];
+    recs.forEach(r=>{try{const d=new Date(r.date+"T00:00:00");const i=(d.getDay()+6)%7;if(i>=0&&i<7)wk[i]+=(+(r.minutes)||0);}catch(e){}});
+    focusTrend=dates.map(k=>hrs(recs.filter(r=>isYear?(String(r.date||"").slice(0,7)===k):(r.date===k)).reduce((s,r)=>s+(+(r&&r.minutes)||0),0)));
+    /* 习惯列表 */
+    hd=habits.filter(h=>!h.archived).map(h=>{
+      const checks=h.checks||{};
+      let c=0;dates.forEach(ds=>{if(checks[ds])c++;});
+      let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(checks[ds])streak++;else break;}
+      return {h,c,rate:Math.round(c/rangeLen*100),streak};
+    }).sort((a,b)=>b.rate-a.rate);
+  }catch(e){
+    console.error("[复盘] 数据计算降级（已用 0/[] 兜底）",e);
+  }
+
+  /* v41：每个面板独立 try/catch + safeWrite 兜底，单个失败不影响其它模块 */
+  const safeWrite=(id,html)=>{const el=$(id);if(!el)return;try{el.innerHTML=html;}catch(e){console.error(`[复盘] ${id} 写入失败`,e);}};
   try{
   /* ── 第一层 总体概览 ── */
-  $("#revSummary").innerHTML=
+  safeWrite("#revSummary",
     `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
     `<div class="scard"><b>${schedRate}%</b><span>日程达标率 🗓️</span></div>`+
     `<div class="scard"><b>${hrs(focusMin)}</b><span>专注小时 ⏱️</span></div>`+
     `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
     `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
-    `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`;
+    `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`);
   }catch(e){console.error("概览渲染失败",e);}
   try{
   /* ── 日程执行复盘 ── */
-  $("#revSchedStats").innerHTML=
+  safeWrite("#revSchedStats",
     `<div class="ms"><b>${liftTotal}</b><span>排程任务</span></div>`+
     `<div class="ms"><b>${liftDone}</b><span>已完成</span></div>`+
     `<div class="ms"><b>${liftUndone}</b><span>未完成</span></div>`+
-    `<div class="ms"><b>${autoNew}</b><span>当日新建排程</span></div>`;
-  const utilVals=dates.map(k=>tasks.filter(t=>!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
+    `<div class="ms"><b>${autoNew}</b><span>当日新建排程</span></div>`);
   safeDraw(()=>drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9"));   /* 无数据时仍渲染 0 值与坐标轴 */
   const schedEmpty=schedT.length===0;
-  $("#revUtilLegend").innerHTML=schedEmpty?revEmptyTip():`<span>每日排程任务数（时间利用率）</span>`;
+  safeWrite("#revUtilLegend", schedEmpty?revEmptyTip():`<span>每日排程任务数（时间利用率）</span>`);
   }catch(e){console.error("日程复盘渲染失败",e);}
   try{
   /* ── 番茄专注复盘 ── */
-  $("#revFocusStats").innerHTML=
+  safeWrite("#revFocusStats",
     `<div class="ms"><b>${hrs(focusMin)}</b><span>总专注(h)</span></div>`+
     `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
-    `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`;
-  const wk=[0,0,0,0,0,0,0];
-  recs.forEach(r=>{const d=new Date(r.date+"T00:00:00");const i=(d.getDay()+6)%7;if(i>=0&&i<7)wk[i]+=(+r.minutes||0);});
+    `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`);
   safeDraw(()=>drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6"));   /* 无数据时仍渲染 0 值与坐标轴 */
   const focusEmpty=recs.length===0;
-  $("#revFocusHeatLegend").innerHTML=focusEmpty?revEmptyTip():`<span>各星期专注时长(h) · 黄金时段一目了然</span>`;
-  const focusTrend=dates.map(k=>hrs(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+(+r.minutes||0),0)));
+  safeWrite("#revFocusHeatLegend", focusEmpty?revEmptyTip():`<span>各星期专注时长(h) · 黄金时段一目了然</span>`);
   safeDraw(()=>drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0)));
   }catch(e){console.error("专注复盘渲染失败",e);}
-  let hd=[];
   try{
   /* ── 习惯打卡复盘 ── */
-  hd=habits.filter(h=>!h.archived).map(h=>{
-    const checks=h.checks||{};
-    let c=0;dates.forEach(ds=>{if(checks[ds])c++;});
-    let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(checks[ds])streak++;else break;}
-    return {h,c,rate:Math.round(c/rangeLen*100),streak};
-  }).sort((a,b)=>b.rate-a.rate);
   const habitHasData=hd.some(o=>o.c>0);
-  $("#revHabitStats").innerHTML=hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>";
-  if(!habitHasData)$("#revHabitStats").insertAdjacentHTML("beforeend",revEmptyTip());   /* 无打卡记录：卡片保留 + 温柔提示 */
+  safeWrite("#revHabitStats", hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>");
+  if(!habitHasData){const el=$("#revHabitStats");if(el)el.insertAdjacentHTML("beforeend",revEmptyTip());}   /* 无打卡记录：卡片保留 + 温柔提示 */
   }catch(e){console.error("习惯复盘渲染失败",e);}
 
   /* 温柔的夸夸 & 改进：全部基于上面同源计算出的真实数据 */
@@ -2523,22 +2569,30 @@ function buildImprove(o){
   $("#revImprove").innerHTML=`<h3 class="ptt">💡 可以更好</h3>`+t.map(x=>`<p class="pp">${x}</p>`).join("");
 }
 function renderRevCal(){
-  const box=$("#revCal");box.innerHTML="";
-  DAY_NAMES.forEach(n=>{const h=document.createElement("div");h.className="hm-head";h.textContent=n.slice(1);box.appendChild(h);});
-  const {base,cells}=monthDays(0);
-  cells.forEach(d=>{
-    const ds=fmtDate(d);
-    const day=state.tasks.filter(t=>!t.abandoned&&t.due===ds);
-    const r=day.length?day.filter(t=>t.done).length/day.length:0;
-    const cell=document.createElement("div");
-    let bg="var(--bg-soft)";
-    if(day.length){bg=r>=.67?"var(--accent)":r>=.34?"color-mix(in srgb,var(--accent) 55%,var(--bg-soft))":"color-mix(in srgb,var(--accent) 28%,var(--bg-soft))";}
-    cell.className="hm-cell"+(d.getMonth()!==base.getMonth()?" out":"");
-    cell.style.background=bg;
-    cell.innerHTML=`<span class="hm-d">${d.getDate()}</span>`;
-    cell.addEventListener("click",()=>toast(day.length?`${md(ds)}：${day.filter(t=>t.done).length}/${day.length} 完成`:`${md(ds)} 无安排`));
-    box.appendChild(cell);
-  });
+  const box=$("#revCal");if(!box){return;}
+  box.innerHTML="";
+  /* v41：用清洗后的局部数组而不是 state.tasks，避免脏数据导致整个日历空白 */
+  const _tasks=Array.isArray(state.tasks)?state.tasks.filter(t=>t&&typeof t==="object"):[];
+  try{
+    DAY_NAMES.forEach(n=>{const h=document.createElement("div");h.className="hm-head";h.textContent=n.slice(1);box.appendChild(h);});
+    const {base,cells}=monthDays(0);
+    cells.forEach(d=>{
+      const ds=fmtDate(d);
+      const day=_tasks.filter(t=>!t.abandoned&&t.due===ds);
+      const r=day.length?day.filter(t=>t.done).length/day.length:0;
+      const cell=document.createElement("div");
+      let bg="var(--bg-soft)";
+      if(day.length){bg=r>=.67?"var(--accent)":r>=.34?"color-mix(in srgb,var(--accent) 55%,var(--bg-soft))":"color-mix(in srgb,var(--accent) 28%,var(--bg-soft))";}
+      cell.className="hm-cell"+(d.getMonth()!==base.getMonth()?" out":"");
+      cell.style.background=bg;
+      cell.innerHTML=`<span class="hm-d">${d.getDate()}</span>`;
+      cell.addEventListener("click",()=>toast(day.length?`${md(ds)}：${day.filter(t=>t.done).length}/${day.length} 完成`:`${md(ds)} 无安排`));
+      box.appendChild(cell);
+    });
+  }catch(e){
+    console.error("[复盘] 日历渲染失败",e);
+    box.insertAdjacentHTML("beforeend",revEmptyTip());
+  }
 }
 
 /* ═══════════ Tab5 设置 · 主题配色（红橙黄绿青蓝紫 7 色系） ═══════════ */
@@ -2904,7 +2958,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v40";
+  const SW_URL="sw.js?__v=jihua-v41";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
