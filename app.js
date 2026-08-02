@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 41;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 42;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2958,7 +2958,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v41";
+  const SW_URL="sw.js?__v=jihua-v42";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -2967,13 +2967,31 @@ if("serviceWorker" in navigator){
   });
   navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());
 }
-/* 跨设备同步：轮询 version.json，任何一端（含 iOS 主屏 PWA）检测到更高 build 即强制刷新，
-   保证电脑/手机/平板始终同一版本，无需手动刷新。 */
+/* 跨设备同步 + HTML 自身版本自检：v42 起，部署更新必达
+   - 拉 version.json 检测 app.js BUILD 落后：落后就 reload
+   - 读 <meta name="app-build"> 检测 HTML 自身版本落后：落后就 reload（根治 iOS PWA 钉死旧 HTML 的 bug）
+   - 每 30s 巡检一次，保证后台标签页/手机锁屏回来都能拉到新版本 */
 (function autoSync(){
-  const check=()=>{fetch("version.json",{cache:"no-store"}).then(r=>r.json()).then(d=>{
-    if(d&&typeof d.build==="number"&&d.build>BUILD)location.reload(true);
-  }).catch(()=>{});};
-  setTimeout(check,8000);
+  const check=()=>{
+    /* 1. 检查 HTML 自身版本（关键修复：iOS PWA 把旧 HTML 缓存钉死，光改 app.js 没用） */
+    try{
+      const meta=document.querySelector('meta[name="app-build"]');
+      const htmlBuild=meta?parseInt(meta.getAttribute('content'),10):0;
+      if(htmlBuild && htmlBuild!==BUILD){
+        console.log(`[autoSync] HTML 旧版 ${htmlBuild} → 强制更新到 ${BUILD}`);
+        location.replace(location.pathname+'?v='+BUILD+'_'+Date.now());
+        return;
+      }
+    }catch(e){}
+    /* 2. 检查 app.js BUILD 落后：拉 version.json */
+    fetch("version.json",{cache:"no-store"}).then(r=>r.json()).then(d=>{
+      if(d&&typeof d.build==="number"&&d.build!==BUILD){
+        console.log(`[autoSync] JS 旧版 ${BUILD} → 强制更新到 ${d.build}`);
+        location.replace(location.pathname+'?v='+d.build+'_'+Date.now());
+      }
+    }).catch(()=>{});
+  };
+  setTimeout(check,2000);
   setInterval(check,30000);
 })();
 /* 灾难恢复：localStorage 被清空/损坏时，用 IndexedDB 镜像回灌 */
