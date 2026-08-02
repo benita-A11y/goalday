@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 50;   /* v50：奶油手帐风空状态文案 + 空态canvas彻底隐藏 + 版本更新小弹窗 */
+const BUILD = 51;   /* v51：复盘全新双层布局——时间维度切换+总体概览+细分拆解+AI小结 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -1930,7 +1930,11 @@ function renderHabitList(){
       <span class="hc-count">${g.habits.length}</span>`;
     if(!habitEditMode)header.addEventListener("click",()=>{state.habitCollapse[g.key]=!collapsed;save();renderHabit();});
     box.appendChild(header);
-    if(!collapsed)g.habits.forEach(h=>box.appendChild(buildHabitCard(h)));
+    if(!collapsed){
+      const wrap=document.createElement("div");wrap.className="hcard-wrap";
+      g.habits.forEach(h=>wrap.appendChild(buildHabitCard(h)));
+      box.appendChild(wrap);
+    }
   });
   appendHabitAdd(box);
 }
@@ -2349,6 +2353,11 @@ $("#revNext").addEventListener("click",()=>{
   else d.setFullYear(d.getFullYear()+1);
   state.reviewAnchor=fmtDate(d);renderReview();save();
 });
+/* v51：回到当前周期按钮 —— 一键把锚点重置为今天 */
+$("#revToday").addEventListener("click",()=>{
+  state.reviewAnchor=todayStr();renderReview();save();
+  toast("📍 已回到当前周期");
+});
 /* v44：复盘周期锚点 —— reviewAnchor 是一个日期字符串，周/月/年均以它为基准计算；
    null 或空串时回退到今天。切 tab 不重置锚点，手动选周期才更新。 */
 function revAnchorDate(){
@@ -2388,6 +2397,26 @@ function renderReview(manual){
   try{ range=revRange(); }
   catch(err){ console.error("复盘取数失败",err); revFatal(err); if(manual)stopRevSpin(false); return; }
   $("#revRangeLabel").textContent=range.label||"";
+  /* v51：自动小标题 —— 如「2026年8月 整体执行复盘」 */
+  const subEl=$("#revSubtitle");
+  if(subEl){
+    const anc=revAnchorDate();
+    const dim=state.reviewDim;
+    let sub="";
+    if(dim==="week"){
+      const m=new Date(anc);m.setHours(0,0,0,0);m.setDate(m.getDate()-((m.getDay()+6)%7));
+      const wk=isoWeek(m);
+      sub=`${anc.getFullYear()}年 第${wk}周 整体执行复盘`;
+    }else if(dim==="month"){
+      sub=`${anc.getFullYear()}年 ${anc.getMonth()+1}月 整体执行复盘`;
+    }else{
+      sub=`${anc.getFullYear()}年 整体执行复盘`;
+    }
+    subEl.textContent=sub;
+  }
+  /* v51：回到当前按钮仅在锚点≠今天时显示 */
+  const todayBtn=$("#revToday");
+  if(todayBtn)todayBtn.style.display=(state.reviewAnchor===todayStr())?"none":"";
   if(manual){
     const btn=$("#revRefresh"); if(btn)btn.classList.add("spinning");
   }else{
@@ -2403,7 +2432,7 @@ function renderReview(manual){
     let ok=false;
     try{
       paintReview(range.dates,range.isDay,range.isYear);
-      ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
+      ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal","#revQuadrant","#revTaskTrend"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
       ensurePanelsNotEmpty();
       ok=true;
       if(manual) setTimeout(()=>toast("✅数据已刷新，为最新版本"),200);
@@ -2433,13 +2462,13 @@ function revFatal(err){
 function ensurePanelsNotEmpty(){
   const fallback=`<div class="rev-empty">该模块暂未显示，点右上角 ↻ 刷新或稍后再试 ✨</div>`;
   [
-    ["#revSummary","#revSummary"],
-    ["#revSchedStats","#revSchedStats"],
-    ["#revFocusStats","#revFocusStats"],
-    ["#revHabitStats","#revHabitStats"],
-    ["#revPraise","#revPraise"],
-    ["#revImprove","#revImprove"],
-  ].forEach(([id,_])=>{
+    "#revSummary",
+    "#revTaskStats",
+    "#revSchedStats",
+    "#revFocusStats",
+    "#revHabitStats",
+    "#revAISummary",
+  ].forEach(id=>{
     const el=$(id); if(!el)return;
     if(!el.innerHTML||el.innerHTML.trim()==="")el.innerHTML=fallback;
   });
@@ -2508,15 +2537,8 @@ function paintReview(dates,isDay,isYear){
     console.error("[复盘] 数据计算降级（已用 0/[] 兜底）",e);
   }
 
-  /* v45：无数据时展示「示例复盘预览」——参考 Forest/滴答清单/小日常等主流复盘 App，
-     让用户点进复盘立即看到完整可视化（图表+统计+夸夸），而非干等空状态。
-     doneT/recs/habitDays 三项全空 = 该周期没有任何"已发生"成果 → 渲染示例预览。
-     横幅标注"示例预览"，提供「一键体验示例数据」把示例变真数据、「我知道了」回到真实空状态。 */
-  const noRealResult=doneT.length===0 && recs.length===0 && habitDays===0;
-  if(noRealResult && !state.revDemoDismissed){
-    try{paintReviewDemo(dates,isDay,isYear);return;}catch(e){console.error("[复盘] 示例预览渲染失败，回退真实渲染",e);}
-  }
-  removeDemoBanner();   /* 有真实数据或已关闭示例 → 移除横幅，走下方真实渲染 */
+  /* v51：移除示例预览拦截——无数据时直接展示真实空状态文案，不再绕道示例预览 */
+  removeDemoBanner();
 
   /* v49：奶油手帐简约风空状态——四模块独立文案，卡片温暖不空白 */
   const safeWrite=(id,html)=>{const el=$(id);if(!el)return;try{el.innerHTML=html;}catch(e){console.error(`[复盘] ${id} 写入失败`,e);}};
@@ -2527,26 +2549,89 @@ function paintReview(dates,isDay,isYear){
   const collapseCanvas=id=>{const el=$(id);if(el){el.style.display="none";el.style.height="0";el.style.margin="0";el.style.padding="0";}};
 
   try{
-  /* ── 总体概览 ── */
-  const summaryEmpty=planned.length===0 && recs.length===0 && habitDays===0;
+  /* ── 第一层：总体概览（4核心KPI + 附加统计） ── */
+  const summaryEmpty=planned.length===0 && recs.length===0 && habitDays===0 && schedT.length===0;
   if(summaryEmpty){
     safeWrite("#revSummary",emptyCard("📋 当前周期暂无任务、日程、专注的数据记录"));
+    safeWrite("#revExtraStats","");
   }else{
+    const rateTag=rate>=90?"优秀":rate>=70?"良好":rate>=50?"一般":"待提升";
+    const rateCls=rate>=90?"kpi-good":rate>=70?"kpi-ok":rate>=50?"kpi-mid":"kpi-low";
     safeWrite("#revSummary",
-      `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
-      `<div class="scard"><b>${schedRate}%</b><span>日程达标率 🗓️</span></div>`+
-      `<div class="scard"><b>${hrs(focusMin)}</b><span>专注小时 ⏱️</span></div>`+
-      `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
-      `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
-      `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`);
+      `<div class="scard"><b>${rate}%</b><span>任务完成率</span><i class="kpi-tag ${rateCls}">${rateTag}${trend}</i></div>`+
+      `<div class="scard"><b>${schedRate}%</b><span>日程达标率</span></div>`+
+      `<div class="scard"><b>${hrs(focusMin)}</b><span>总专注时长(h)</span></div>`+
+      `<div class="scard"><b>${habitRate}%</b><span>习惯达成率</span></div>`);
+    const newCnt=tasks.filter(t=>{if(!t.createdAt)return false;try{return inRange(fmtDate(new Date(t.createdAt)));}catch(e){return false;}}).length;
+    const abandonCnt=tasks.filter(t=>t.abandoned&&inRange(t.due)).length;
+    safeWrite("#revExtraStats",
+      `<span>📝 新建 ${newCnt}</span><span>✅ 完成 ${doneT.length}</span><span>⚠️ 逾期 ${overdueCnt}</span><span>❌ 放弃 ${abandonCnt}</span>`);
   }
   }catch(e){console.error("概览渲染失败",e);}
   try{
-  /* ── 日程执行复盘 ── */
+  /* ── 模块一：任务清单复盘 ── */
+  const taskEmpty=planned.length===0;
+  if(taskEmpty){
+    safeWrite("#revTaskStats",emptyCard("📋 本周期暂无任务记录，创建任务后即可看见数据"));
+    safeWrite("#revTaskClass","");
+    safeWrite("#revQuadrantLegend","");
+    safeWrite("#revTaskTrendLegend","");
+    collapseCanvas("#revQuadrant");collapseCanvas("#revTaskTrend");
+  }else{
+    /* 分类统计：按清单分组，高亮最高效/最拖延 */
+    const listStats=lists.map(l=>{
+      const lt=planned.filter(t=>t.listId===l.id);
+      const dn=lt.filter(t=>t.done).length;
+      return {l,total:lt.length,done:dn,rate:lt.length?Math.round(dn/lt.length*100):0};
+    }).filter(s=>s.total>0).sort((a,b)=>b.rate-a.rate);
+    /* 无清单归属的任务归入「未分类」 */
+    const noList=planned.filter(t=>!t.listId||!lists.some(l=>l.id===t.listId));
+    if(noList.length){
+      const dn=noList.filter(t=>t.done).length;
+      listStats.push({l:{emoji:"📥",name:"未分类",color:"#999"},total:noList.length,done:dn,rate:Math.round(dn/noList.length*100)});
+    }
+    const best=listStats[0],worst=listStats[listStats.length-1];
+    safeWrite("#revTaskStats",
+      `<div class="ms"><b>${planned.length}</b><span>有效任务</span></div>`+
+      `<div class="ms"><b>${doneT.length}</b><span>已完成</span></div>`+
+      `<div class="ms"><b>${planned.length-doneT.length}</b><span>未完成</span></div>`+
+      `<div class="ms"><b>${rate}%</b><span>完成率</span></div>`);
+    safeWrite("#revTaskClass",
+      (best?`<div class="rev-class-hi">🏆 最高效：${esc(best.l.emoji||"")} ${esc(best.l.name)} ${best.rate}%</div>`:"")+
+      (worst&&worst!==best?`<div class="rev-class-lo">🐌 待提升：${esc(worst.l.emoji||"")} ${esc(worst.l.name)} ${worst.rate}%</div>`:"")+
+      listStats.map(s=>`<div class="rev-class-row"><span class="dot" style="background:${s.l.color||"#ccc"}"></span><b>${esc((s.l.emoji||"")+" "+s.l.name)}</b><span class="rc-rate">${s.done}/${s.total} · ${s.rate}%</span></div>`).join(""));
+    /* 四象限分布饼图：P0-P3 */
+    const quad=[0,0,0,0];
+    planned.forEach(t=>{const p=t.pri!==undefined&&t.pri!==null&&t.pri!==""?+t.pri:99;if(p>=0&&p<4)quad[p]++;});
+    const quadTotal=quad.reduce((s,v)=>s+v,0);
+    const quadData=[
+      {label:"P0 重要紧急",value:quad[0],color:"#C77B6E"},
+      {label:"P1 重要不紧急",value:quad[1],color:"#D99A5B"},
+      {label:"P2 紧急不重要",value:quad[2],color:"#E0C05C"},
+      {label:"P3 不重要不紧急",value:quad[3],color:"#7FB89A"},
+    ].filter(d=>d.value>0);
+    if(quadTotal>0&&quadData.length>0){
+      showEl("#revQuadrant");
+      safeDraw(()=>drawDonut($("#revQuadrant"),quadData));
+      safeWrite("#revQuadrantLegend",quadData.map(d=>`<span><i class="d" style="background:${d.color}"></i>${d.label} ${d.value}</span>`).join(""));
+    }else{
+      collapseCanvas("#revQuadrant");
+      safeWrite("#revQuadrantLegend","<span>暂无优先级标记</span>");
+    }
+    /* 任务状态趋势折线：周=7日/月=30日/年=12月 */
+    const taskTrend=dates.map(k=>tasks.filter(t=>t.done&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
+    showEl("#revTaskTrend");
+    safeDraw(()=>drawLine($("#revTaskTrend"),dayLabels,taskTrend,taskTrend.map(()=>0)));
+    safeWrite("#revTaskTrendLegend",`<span>每日完成任务趋势</span>`);
+  }
+  }catch(e){console.error("任务复盘渲染失败",e);}
+  try{
+  /* ── 模块二：日程执行复盘 ── */
   const schedEmpty=schedT.length===0;
   if(schedEmpty){
     safeWrite("#revSchedStats",emptyCard("🗓 本周期暂无排程 & 完成日程，排计划后即可看见数据"));
     safeWrite("#revUtilLegend","");
+    safeWrite("#revCrossWeek","");
     collapseCanvas("#revUtil");
   }else{
     safeWrite("#revSchedStats",
@@ -2557,41 +2642,59 @@ function paintReview(dates,isDay,isYear){
     showEl("#revUtil");
     safeDraw(()=>drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9"));
     safeWrite("#revUtilLegend",`<span>每日排程任务数（时间利用率）</span>`);
+    /* 跨周调整统计：延期/跨周修改的任务数量 */
+    let crossCnt=0;
+    try{crossCnt=planned.filter(t=>t.due&&t.createdAt&&fmtDate(new Date(t.createdAt))!==t.due).length;}catch(e){}
+    safeWrite("#revCrossWeek",crossCnt>0?`<div class="rev-cw">🔄 跨周调整/延期任务 ${crossCnt} 项 · 规划稳定性 ${100-Math.round(crossCnt/planned.length*100)}%</div>`:"");
   }
   }catch(e){console.error("日程复盘渲染失败",e);}
   try{
-  /* ── 番茄专注复盘 ── */
+  /* ── 模块三：番茄专注复盘 ── */
   const focusEmpty=recs.length===0;
   if(focusEmpty){
     safeWrite("#revFocusStats",emptyCard("🍅 还没有专注计时记录，开始番茄专注就会产生复盘数据"));
     safeWrite("#revFocusHeatLegend","");
+    safeWrite("#revFocusTrendLegend","");
     collapseCanvas("#revFocusHeat");collapseCanvas("#revFocusTrend");
   }else{
+    const peakIdx=wk.indexOf(Math.max(...wk));
+    const peakDay=["周一","周二","周三","周四","周五","周六","周日"][peakIdx];
     safeWrite("#revFocusStats",
       `<div class="ms"><b>${hrs(focusMin)}</b><span>总专注(h)</span></div>`+
       `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
-      `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`);
+      `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`+
+      `<div class="ms"><b>${peakDay}</b><span>黄金时段</span></div>`);
     showEl("#revFocusHeat");showEl("#revFocusTrend");
     safeDraw(()=>drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6"));
     safeWrite("#revFocusHeatLegend",`<span>各星期专注时长(h) · 黄金时段一目了然</span>`);
     safeDraw(()=>drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0)));
+    safeWrite("#revFocusTrendLegend",`<span>专注时长波动趋势(h)</span>`);
   }
   }catch(e){console.error("专注复盘渲染失败",e);}
   try{
-  /* ── 习惯打卡复盘 ── */
+  /* ── 模块四：习惯打卡复盘 ── */
   const habitHasData=hd.some(o=>o.c>0);
   if(!habitHasData){
     safeWrite("#revHabitStats",emptyCard("✨ 本周还没有打卡记录，完成打卡后这里会生成统计"));
+    safeWrite("#revHabitBest","");
+    const calBox=$("#revCal");if(calBox)calBox.innerHTML="";
   }else{
-    safeWrite("#revHabitStats", hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>");
+    safeWrite("#revHabitStats", hd.length?hd.map(o=>{
+      const breaks=Math.max(0,rangeLen-o.c);
+      return `<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 中断${breaks}次 · 完成率${o.rate}%</span></div>`;
+    }).join(""):"<span>暂无习惯</span>");
+    const bestH=hd.reduce((a,b)=>b.rate>a.rate?b:a,hd[0]);
+    const weakH=hd.reduce((a,b)=>b.rate<a.rate?b:a,hd[0]);
+    safeWrite("#revHabitBest",
+      (bestH&&bestH.rate>0?`<div class="rev-hb-good">🏆 最优习惯：${esc(bestH.h.emoji+" "+bestH.h.name)} · 连续${bestH.streak}天</div>`:"")+
+      (weakH&&weakH!==bestH&&weakH.rate<100?`<div class="rev-hb-low">🌱 待优化：${esc(weakH.h.emoji+" "+weakH.h.name)} · 完成率仅${weakH.rate}%</div>`:""));
   }
   }catch(e){console.error("习惯复盘渲染失败",e);}
 
-  /* 温柔的夸夸 & 改进：全部基于上面同源计算出的真实数据 */
+  /* ── 底部：智能复盘小结（3行极简总结） ── */
   const revCtx={planned,doneT,rate,schedRate,schedDone:liftDone,schedTotal:liftTotal,
-    focusMin,pomoCnt,avgMin,habitRate,habitDays,overdueCnt,prevRate,hd:hd||[],dates,isYear,isDay,lists,tasks};
-  try{buildPraise(revCtx);}catch(e){console.error("夸夸渲染失败",e);}
-  try{buildImprove(revCtx);}catch(e){console.error("改进渲染失败",e);}
+    focusMin,pomoCnt,avgMin,habitRate,habitDays,overdueCnt,prevRate,hd:hd||[],wk,dates,isYear,isDay,lists,tasks};
+  try{buildAISummary(revCtx);}catch(e){console.error("AI小结渲染失败",e);}
   try{renderRevCal();}catch(e){console.error("日历渲染失败",e);}
 }
 /* v45：示例复盘预览 —— 该周期无任何成果数据时，渲染一套完整可视化（图表+统计+夸夸），
@@ -2794,6 +2897,55 @@ function buildImprove(o){
   if(top&&topN>=3)t.push(`「${esc(top.name)}」里还有 <b>${topN}</b> 条没排进日程，挑 1–2 条先放进周历，脑子就清爽了 📌`);
   if(!t.length)t.push(`这一周期节奏挺舒服的，不用给自己加压，保持住就是胜利 🍃`);
   $("#revImprove").innerHTML=`<h3 class="ptt">💡 可以更好</h3>`+t.map(x=>`<p class="pp">${x}</p>`).join("");
+}
+/* v51：智能复盘小结——根据真实数据自动生成3行极简总结，写到底部 #revAISummary
+   ① 整体状态总结（完成率、自律评级） ② 优势亮点（最高效时段/最优习惯/最高分类）
+   ③ 优化建议（拖延点/逾期高发/专注薄弱） */
+function buildAISummary(o){
+  const el=$("#revAISummary");
+  if(!el)return;
+  const hrs=m=>Math.round(m/6)/10;
+  const allEmpty=o.planned.length===0&&o.focusMin===0&&o.habitDays===0&&o.schedTotal===0;
+  if(allEmpty){
+    el.innerHTML=`<h3 class="ptt">🤖 智能复盘小结</h3>`+
+      `<div class="rev-ai-row"><span class="rev-ai-ico">📊</span><span>当前周期暂无数据，开始记录后这里会自动生成复盘总结</span></div>`;
+    return;
+  }
+  const lines=[];
+  /* ① 整体状态 */
+  const level=o.rate>=80?"自律达人":o.rate>=60?"稳步前行":o.rate>=40?"慢慢变好":"刚刚起步";
+  let s1=`整体完成率 <b>${o.rate}%</b>，评级「<b>${level}</b>」`;
+  if(o.prevRate!=null)s1+=o.rate>o.prevRate?`，比上期提升 <b>${o.rate-o.prevRate}%</b> 📈`:o.rate<o.prevRate?`，比上期下降 <b>${o.prevRate-o.rate}%</b> 📉`:"，与上期持平 ➡️";
+  if(o.schedTotal>0)s1+=`；日程达标率 <b>${o.schedRate}%</b>`;
+  if(o.focusMin>0)s1+=`；专注 <b>${hrs(o.focusMin)}h</b>`;
+  if(o.habitDays>0)s1+=`；习惯达成 <b>${o.habitRate}%</b>`;
+  lines.push({ico:"📊",text:s1});
+  /* ② 优势亮点 */
+  let s2="";
+  const bestHabit=(o.hd||[]).reduce((a,b)=>b.streak>a.streak?b:a,null);
+  const topHabit=(o.hd||[]).reduce((a,b)=>b.rate>a.rate?b:a,null);
+  if(o.focusMin>0){
+    const peakIdx=(o.wk||[0,0,0,0,0,0,0]).indexOf(Math.max(...(o.wk||[0])));
+    const peakDay=["周一","周二","周三","周四","周五","周六","周日"][peakIdx];
+    if(peakDay)s2+=`黄金专注时段「<b>${peakDay}</b>」`;
+  }
+  if(bestHabit&&bestHabit.streak>=3)s2+=(s2?"· ":"")+`「${esc(bestHabit.h.emoji+bestHabit.h.name)}」连续 <b>${bestHabit.streak}天</b>`;
+  if(topHabit&&topHabit.rate>=70)s2+=(s2?"· ":"")+`「${esc(topHabit.h.emoji+topHabit.h.name)}」完成率 <b>${topHabit.rate}%</b>`;
+  if(o.schedRate>=80)s2+=(s2?"· ":"")+"日程执行力出色";
+  if(!s2)s2="每一步记录都在积累，保持住就是最大的优势 🌿";
+  lines.push({ico:"🌟",text:s2});
+  /* ③ 优化建议 */
+  let s3="";
+  if(o.overdueCnt>0)s3+=`有 <b>${o.overdueCnt}</b> 项逾期，挑一件最轻的先收尾`;
+  if(o.schedTotal>0&&o.schedRate<60)s3+=(s3?"· ":"")+`排程完成率仅 <b>${o.schedRate}%</b>，试试每天锁定3件要事`;
+  const weakHabit=(o.hd||[]).reduce((a,b)=>b.rate<a.rate?b:a,null);
+  if(weakHabit&&weakHabit.rate<50&&weakHabit.rate>0)s3+=(s3?"· ":"")+`「${esc(weakHabit.h.emoji+weakHabit.h.name)}」打卡偏低，明天续上一天就好`;
+  if(o.focusMin<60&&!o.isDay)s3+=(s3?"· ":"")+"专注时长偏少，每天1个番茄钟比偶尔突击更有效";
+  if(o.planned.length>0&&o.rate<50)s3+=(s3?"· ":"")+"任务完成率有待提升，试试把大任务拆小";
+  if(!s3)s3="这一周期节奏挺舒服的，保持住就是胜利 🍃";
+  lines.push({ico:"💡",text:s3});
+  el.innerHTML=`<h3 class="ptt">🤖 智能复盘小结</h3>`+
+    lines.map(l=>`<div class="rev-ai-row"><span class="rev-ai-ico">${l.ico}</span><span class="rev-ai-text">${l.text}</span></div>`).join("");
 }
 function renderRevCal(){
   const box=$("#revCal");if(!box){return;}
@@ -3185,7 +3337,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v50";
+  const SW_URL="sw.js?__v=jihua-v51";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -3214,7 +3366,7 @@ function showUpdateBadge(){
         '<div class="upd-badge-card">'+
           '<div class="upd-badge-emoji">✨</div>'+
           '<div class="upd-badge-title">已更新至最新版本</div>'+
-          '<div class="upd-badge-sub">计划册 v'+BUILD+' · 复盘空状态文案优化啦</div>'+
+          '<div class="upd-badge-sub">计划册 v'+BUILD+' · 复盘全新双层布局上线啦</div>'+
           '<button class="upd-badge-btn">✨ 知道了</button>'+
         '</div>';
       document.body.appendChild(box);

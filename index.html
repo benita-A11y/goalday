@@ -8,12 +8,12 @@
 <meta name="theme-color" content="#F5F0EB">
 <!-- v44：复盘空状态+日期选择器+刷新反馈。HTML 自身加版本戳，app.js 启动时自动比对，
      不一致就 location.replace 强制重抓，从此每次部署用户都能拿到新结构。 -->
-<meta name="app-build" content="50">
+<meta name="app-build" content="51">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="manifest" href="manifest.webmanifest?__v=jihua-v48">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?__v=jihua-v48">
+<link rel="manifest" href="manifest.webmanifest?__v=jihua-v51">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?__v=jihua-v51">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="计划册">
@@ -221,35 +221,76 @@
   </div>
 </section>
 
-<!-- ═══════════ Tab4 复盘 ═══════════ -->
+<!-- ═══════════ Tab4 复盘（v51：时间维度切换+两层布局+AI小结） ═══════════ -->
 <section class="page" id="page-review">
   <header class="page-head center"><h1>📊 复盘</h1><button id="revRefresh" class="rev-refresh" title="刷新数据">↻</button></header>
+  <!-- 时间维度 Tab：周 / 月 / 年，全页数据一键同步切换 -->
   <div class="sub-tabs" id="revDims">
-    <button data-d="week" class="active">周</button>
-    <button data-d="month">月</button>
-    <button data-d="year">年</button>
+    <button data-d="week" class="active">本周</button>
+    <button data-d="month">本月</button>
+    <button data-d="year">本年</button>
   </div>
   <div class="scroll-body">
-      <div id="dataView">
-        <div class="rev-range-row"><span class="rev-nav" id="revPrev" title="上一周期">‹</span><span id="revRangeLabel" class="rev-range"></span><span class="rev-nav" id="revNext" title="下一周期">›</span></div>
-
-        <div class="panel"><h3 class="ptt">✅ 习惯打卡复盘</h3><div id="revHabitStats"></div></div>
-
-        <div class="rev-section-title">📋 总体概览</div>
-        <div class="stat-cards" id="revSummary"></div>
-
-        <div class="panel"><h3 class="ptt">🗓️ 日程执行复盘</h3><div id="revSchedStats" class="mini-stats"></div><canvas id="revUtil" height="170"></canvas><div id="revUtilLegend" class="legend"></div></div>
-
-        <div class="panel praise" id="revPraise"></div>
-        <div class="panel improve" id="revImprove"></div>
-
-        <div class="panel"><h3 class="ptt">🍅 番茄专注复盘</h3><div id="revFocusStats" class="mini-stats"></div><canvas id="revFocusHeat" height="130"></canvas><div id="revFocusHeatLegend" class="legend"></div><canvas id="revFocusTrend" height="170"></canvas></div>
-
-        <div class="panel"><h3 class="ptt">🗓️ 打卡日历热力图</h3><div class="heatmap" id="revCal"></div></div>
-
-        <div class="panel" id="revMoodPanel" hidden><h3 class="ptt">💗 心情分布</h3><canvas id="revMoodDonut" height="200"></canvas><div id="revMoodLegend" class="legend"></div></div>
-        <div class="panel" id="revMoodTrendPanel" hidden><h3 class="ptt">🌈 心情趋势</h3><canvas id="revMoodLine" height="180"></canvas></div>
+    <div id="dataView">
+      <!-- 时间回溯：‹ › 切换上一/下一周期 + 回到当前 -->
+      <div class="rev-nav-row">
+        <button class="rev-nav" id="revPrev" title="上一周期">‹</button>
+        <span id="revRangeLabel" class="rev-range"></span>
+        <button class="rev-nav" id="revNext" title="下一周期">›</button>
+        <button id="revToday" class="rev-today-btn" title="回到当前周期">回到当前</button>
       </div>
+      <!-- 自动小标题：如「2026年8月 整体执行复盘」 -->
+      <div id="revSubtitle" class="rev-subtitle"></div>
+
+      <!-- ═══ 第一层：总体概览区（核心大盘） ═══ -->
+      <div class="rev-section-title">📋 总体概览</div>
+      <div class="stat-cards" id="revSummary"></div>
+      <div class="rev-extra-stats" id="revExtraStats"></div>
+
+      <!-- ═══ 第二层：细分数据拆解区 ═══ -->
+      <div class="rev-section-title">📊 细分数据拆解</div>
+
+      <!-- 模块一：任务清单复盘 -->
+      <div class="panel">
+        <h3 class="ptt">📋 任务清单复盘</h3>
+        <div id="revTaskStats" class="mini-stats"></div>
+        <div id="revTaskClass" class="rev-class-list"></div>
+        <canvas id="revQuadrant" height="180"></canvas>
+        <div id="revQuadrantLegend" class="legend"></div>
+        <canvas id="revTaskTrend" height="150"></canvas>
+        <div id="revTaskTrendLegend" class="legend"></div>
+      </div>
+
+      <!-- 模块二：日程执行复盘 -->
+      <div class="panel">
+        <h3 class="ptt">🗓️ 日程执行复盘</h3>
+        <div id="revSchedStats" class="mini-stats"></div>
+        <canvas id="revUtil" height="170"></canvas>
+        <div id="revUtilLegend" class="legend"></div>
+        <div id="revCrossWeek" class="rev-cross-week"></div>
+      </div>
+
+      <!-- 模块三：番茄专注复盘 -->
+      <div class="panel">
+        <h3 class="ptt">🍅 番茄专注复盘</h3>
+        <div id="revFocusStats" class="mini-stats"></div>
+        <canvas id="revFocusHeat" height="130"></canvas>
+        <div id="revFocusHeatLegend" class="legend"></div>
+        <canvas id="revFocusTrend" height="170"></canvas>
+        <div id="revFocusTrendLegend" class="legend"></div>
+      </div>
+
+      <!-- 模块四：习惯打卡复盘 -->
+      <div class="panel">
+        <h3 class="ptt">✅ 习惯打卡复盘</h3>
+        <div id="revHabitStats"></div>
+        <div class="heatmap" id="revCal"></div>
+        <div id="revHabitBest" class="rev-habit-best"></div>
+      </div>
+
+      <!-- ═══ 底部：智能复盘小结 ═══ -->
+      <div class="panel rev-ai-panel" id="revAISummary"></div>
+    </div>
     <div id="annualEntry"></div>
   </div>
 </section>
@@ -258,60 +299,62 @@
 <section class="page" id="page-settings">
   <header class="page-head center"><h1>⚙️ 设置</h1></header>
   <div class="scroll-body">
-    <div class="panel set-group">
-      <h3 class="ptt">☁️ iCloud 同步</h3>
-      <p class="set-note">网页版通过「备份文件 + iCloud云盘」跨设备同步：导出备份保存到 iCloud云盘，在其他设备恢复即可。</p>
-      <button class="set-btn" id="setExport">💾 导出备份（存 iCloud云盘）</button>
-      <button class="set-btn" id="setImport">📂 恢复备份</button>
-    </div>
-    <div class="panel set-group">
-      <h3 class="ptt">📅 系统日历</h3>
-      <p class="set-note">单向只读导入，不回写系统日历。iPhone 日历 → 共享/导出 .ics 后在此导入。</p>
-      <button class="set-btn" id="setIcs">📥 导入系统日历 (.ics)</button>
-      <button class="set-btn" id="setClearIcs">🧹 清空已导入日历</button>
-    </div>
-    <div class="panel set-group">
-      <button class="entry-card" id="openPalette">
-        <span class="ec-ico">🎨</span>
-        <span class="ec-main"><b>调色盘</b><small>管理你的专属色彩灵感库</small></span>
-        <span class="ec-go">›</span>
-      </button>
-    </div>
-    <div class="panel set-group">
-      <h3 class="ptt">🎨 主题配色</h3>
-      <div class="theme-list sys-chips" id="themeList">
-        <button class="theme-item" data-sys="red"><span class="tdot" style="background:#C77B6E"></span><span class="tname">🔴 红色系</span></button>
-        <button class="theme-item" data-sys="orange"><span class="tdot" style="background:#D99A5B"></span><span class="tname">🟠 橙色系</span></button>
-        <button class="theme-item" data-sys="yellow"><span class="tdot" style="background:#E0C05C"></span><span class="tname">🟡 黄色系</span></button>
-        <button class="theme-item" data-sys="green"><span class="tdot" style="background:#7FB89A"></span><span class="tname">🟢 绿色系</span></button>
-        <button class="theme-item" data-sys="cyan"><span class="tdot" style="background:#6FB6C9"></span><span class="tname">🩵 青色系</span></button>
-        <button class="theme-item" data-sys="blue"><span class="tdot" style="background:#6F9FD6"></span><span class="tname">🔵 蓝色系</span></button>
-        <button class="theme-item" data-sys="purple"><span class="tdot" style="background:#9B8EC9"></span><span class="tname">🟣 紫色系</span></button>
+    <div class="set-grid">
+      <div class="panel set-group">
+        <h3 class="ptt">☁️ iCloud 同步</h3>
+        <p class="set-note">网页版通过「备份文件 + iCloud云盘」跨设备同步：导出备份保存到 iCloud云盘，在其他设备恢复即可。</p>
+        <button class="set-btn" id="setExport">💾 导出备份（存 iCloud云盘）</button>
+        <button class="set-btn" id="setImport">📂 恢复备份</button>
       </div>
-      <div class="sys-schemes" id="sysSchemes"></div>
-      <div class="theme-custom" id="themeCustom"></div>
-      <p class="set-note">🎨 选一个色系，点开里面的配色方案即可一键应用到全局；想要更个性化，可在下方「我的收藏色」单独指定主色微调。</p>
-    </div>
-    <div class="panel set-group">
-      <h3 class="ptt">🔔 智能提醒</h3>
-      <p class="set-note">开启后，任务到达截止时间时（应用打开状态下）弹出提醒通知。</p>
-      <button class="set-btn" id="setNotify">🔔 开启通知权限</button>
-    </div>
-    <div class="panel set-group">
-      <h3 class="ptt">📱 添加到主屏幕（离线独立运行）</h3>
-      <p class="set-note">iPhone：Safari 打开本页 → 分享 → 「添加到主屏幕」。之后完全断网也可正常使用，数据保存在本机。</p>
-    </div>
-    <div class="panel set-group">
-      <h3 class="ptt">ℹ️ 关于</h3>
-      <p class="set-note">计划册 v48 (jihua-v48) · 灵感收集箱(直接「分类」归入清单/待分类同源) × 日清单便签 + 日程窄时间轴(00–23·卡片显示清单分类名称·首屏自动滚到当前时间) × 复盘自定义周期+空状态兜底(每模块独立空提示+刷新旋转反馈+日期选择器) × 全量持久化/云同步持续在线<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
-    </div>
-    <div class="panel set-group">
-      <h3 class="ptt">🗂️ 数据管理</h3>
-      <button class="clear-data" id="clearData">
-        <span class="cd-t">🗑️ 清空当前数据</span>
-        <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
-      </button>
-      <div class="app-ver">计划册 v48 (jihua-v48) · 莫兰迪 / 马卡龙奶油风</div>
+      <div class="panel set-group">
+        <h3 class="ptt">📅 系统日历</h3>
+        <p class="set-note">单向只读导入，不回写系统日历。iPhone 日历 → 共享/导出 .ics 后在此导入。</p>
+        <button class="set-btn" id="setIcs">📥 导入系统日历 (.ics)</button>
+        <button class="set-btn" id="setClearIcs">🧹 清空已导入日历</button>
+      </div>
+      <div class="panel set-group">
+        <button class="entry-card" id="openPalette">
+          <span class="ec-ico">🎨</span>
+          <span class="ec-main"><b>调色盘</b><small>管理你的专属色彩灵感库</small></span>
+          <span class="ec-go">›</span>
+        </button>
+      </div>
+      <div class="panel set-group">
+        <h3 class="ptt">🎨 主题配色</h3>
+        <div class="theme-list sys-chips" id="themeList">
+          <button class="theme-item" data-sys="red"><span class="tdot" style="background:#C77B6E"></span><span class="tname">🔴 红色系</span></button>
+          <button class="theme-item" data-sys="orange"><span class="tdot" style="background:#D99A5B"></span><span class="tname">🟠 橙色系</span></button>
+          <button class="theme-item" data-sys="yellow"><span class="tdot" style="background:#E0C05C"></span><span class="tname">🟡 黄色系</span></button>
+          <button class="theme-item" data-sys="green"><span class="tdot" style="background:#7FB89A"></span><span class="tname">🟢 绿色系</span></button>
+          <button class="theme-item" data-sys="cyan"><span class="tdot" style="background:#6FB6C9"></span><span class="tname">🩵 青色系</span></button>
+          <button class="theme-item" data-sys="blue"><span class="tdot" style="background:#6F9FD6"></span><span class="tname">🔵 蓝色系</span></button>
+          <button class="theme-item" data-sys="purple"><span class="tdot" style="background:#9B8EC9"></span><span class="tname">🟣 紫色系</span></button>
+        </div>
+        <div class="sys-schemes" id="sysSchemes"></div>
+        <div class="theme-custom" id="themeCustom"></div>
+        <p class="set-note">🎨 选一个色系，点开里面的配色方案即可一键应用到全局；想要更个性化，可在下方「我的收藏色」单独指定主色微调。</p>
+      </div>
+      <div class="panel set-group">
+        <h3 class="ptt">🔔 智能提醒</h3>
+        <p class="set-note">开启后，任务到达截止时间时（应用打开状态下）弹出提醒通知。</p>
+        <button class="set-btn" id="setNotify">🔔 开启通知权限</button>
+      </div>
+      <div class="panel set-group">
+        <h3 class="ptt">📱 添加到主屏幕（离线独立运行）</h3>
+        <p class="set-note">iPhone：Safari 打开本页 → 分享 → 「添加到主屏幕」。之后完全断网也可正常使用，数据保存在本机。</p>
+      </div>
+      <div class="panel set-group">
+        <h3 class="ptt">ℹ️ 关于</h3>
+        <p class="set-note">计划册 v48 (jihua-v51) · 灵感收集箱(直接「分类」归入清单/待分类同源) × 日清单便签 + 日程窄时间轴(00–23·卡片显示清单分类名称·首屏自动滚到当前时间) × 复盘自定义周期+空状态兜底(每模块独立空提示+刷新旋转反馈+日期选择器) × 全量持久化/云同步持续在线<br>莫兰迪/马卡龙奶油风 · 手账质感 · 离线 PWA</p>
+      </div>
+      <div class="panel set-group">
+        <h3 class="ptt">🗂️ 数据管理</h3>
+        <button class="clear-data" id="clearData">
+          <span class="cd-t">🗑️ 清空当前数据</span>
+          <span class="cd-s">清除所有演示数据，重新开始使用（保留调色盘收藏与主题配色设置）</span>
+        </button>
+        <div class="app-ver">计划册 v48 (jihua-v51) · 莫兰迪 / 马卡龙奶油风</div>
+      </div>
     </div>
   </div>
 </section>
@@ -469,8 +512,8 @@
   <div class="scroll-body" id="annualBody"></div>
 </section>
 
-<script src="app.js?__v=jihua-v48"></script>
-<script src="plus.js?__v=jihua-v48"></script>
-<script src="sync.js?__v=jihua-v48"></script>
+<script src="app.js?__v=jihua-v51"></script>
+<script src="plus.js?__v=jihua-v51"></script>
+<script src="sync.js?__v=jihua-v51"></script>
 </body>
 </html>

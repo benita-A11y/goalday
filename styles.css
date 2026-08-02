@@ -1538,3 +1538,148 @@ body.no-scroll{overflow:hidden;}
   .upd-badge-btn{background:#4A4034;color:#F5E6CC;border-color:#5A4F40;}
   .upd-badge-btn:hover{background:#5A4F40;}
 }
+
+/* ═══════════════════════════════════════════════════════
+   v50 · 增强式响应布局 — 桌面 / 平板 / 手机三段自适应
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 平板 & 小桌面 (821px – 1199px) ── */
+@media (min-width:821px){
+  /* 打卡页：双列卡片网格 */
+  .hcard{margin:0 0 10px 0;}
+  .hcard-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;max-width:1080px;margin:0 auto;}
+
+  /* 设置页：双列面板 */
+  .set-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+  .set-grid .set-group:last-child:nth-child(odd){grid-column:1/-1;}
+  .set-grid .set-group{margin-bottom:0;}
+
+  /* 复盘统计：更宽的限制 */
+  .stat-cards{max-width:600px;}
+
+  /* 周计划：优化两栏比例 */
+  .week-cols{display:flex;gap:0;}
+  .pool-panel{width:300px;min-width:280px;max-width:340px;flex-shrink:0;}
+  .cal-panel{flex:1;min-width:0;}
+
+  /* 通用：更舒适的间距 */
+  .page-head{padding-left:18px;padding-right:18px;max-width:1080px;margin:0 auto;}
+  .vwrap{max-width:1080px;margin:0 auto;}
+  .scroll-body{padding-left:14px;padding-right:14px;}
+  .scroll-body-slim{padding-left:14px;padding-right:14px;}
+}
+
+/* ── 中大型桌面 (≥1200px) ── */
+@media (min-width:1200px){
+  .page{max-width:1200px;}
+
+  /* 打卡页：三列卡片 */
+  .hcard-wrap{grid-template-columns:repeat(3,1fr);}
+
+  /* 周计划：更宽的面板 */
+  .pool-panel{width:340px;}
+
+  /* 复盘统计：更宽 */
+  .stat-cards{max-width:800px;}
+
+  /* 设置页：保持双列但面板更宽敞 */
+  .set-grid{gap:20px;}
+}
+
+/* ── 手机端优化 (≤480px) ── */
+@media (max-width:480px){
+  body{font-size:14px;}
+  .tab-label{font-size:10px;}
+  .tab-icon{font-size:20px;}
+
+  /* 打卡页：更紧凑的卡片间距 */
+  .hcard{margin:0 6px 8px;}
+
+  /* 周计划：优化日单元格 */
+  .day-cell{min-height:50px;padding:5px 3px 18px;}
+  .day-num{font-size:13px;margin-bottom:2px;}
+  .day-txt{font-size:10px;}
+
+  /* 通用：收窄边距 */
+  .page-head{padding:12px 10px 8px;}
+  .scroll-body{padding-left:8px;padding-right:8px;}
+  .scroll-body-slim{padding-left:8px;padding-right:8px;}
+
+  /* 底部通栏：侧滑面板全屏（由day-detail-sheet已有样式处理） */
+}
+
+/* ── 触控增强 ── */
+@media (pointer:coarse){
+  .tab-btn{padding:6px 0 4px;}
+  .icon-btn,.pill{min-height:36px;min-width:36px;}
+  .btn-circ{min-height:42px;min-width:42px;}
+}
+
+/* ═══════════ v51 · 复盘全新双层布局样式（奶油手帐风） ═══════════ */
+
+/* 时间导航行：‹ › + 周期标签 + 回到当前 */
+.rev-nav-row{display:flex;align-items:center;justify-content:center;gap:2px;padding:4px 2px 2px;flex-wrap:wrap;}
+.rev-nav-row .rev-range{font-size:13px;color:var(--ink-soft);font-weight:600;padding:0 4px;}
+.rev-nav-row .rev-nav{font-size:22px;color:var(--ink-soft);cursor:pointer;padding:0 10px;border-radius:6px;user-select:none;line-height:1;transition:background .15s;-webkit-tap-highlight-color:transparent;border:none;background:transparent;}
+.rev-nav-row .rev-nav:active{background:var(--bg-soft);}
+.rev-today-btn{font-size:11px;color:var(--ink-soft);background:var(--bg-soft);border:1px solid var(--line);border-radius:8px;padding:3px 10px;cursor:pointer;margin-left:6px;white-space:nowrap;transition:background .15s;}
+.rev-today-btn:active{background:var(--line);}
+
+/* 自动小标题 */
+.rev-subtitle{text-align:center;font-size:14px;font-weight:700;color:var(--ink);margin:6px 2px 12px;letter-spacing:.3px;}
+
+/* KPI 状态标签 */
+.kpi-tag{display:inline-block;font-size:10px;font-weight:600;padding:1px 7px;border-radius:8px;margin-top:3px;letter-spacing:.5px;}
+.kpi-good{background:#E8F5E9;color:#2E7D32;}
+.kpi-ok{background:#FFF8E1;color:#F57F17;}
+.kpi-mid{background:#FFF3E0;color:#E65100;}
+.kpi-low{background:#FBE9E7;color:#C62828;}
+
+/* 附加统计行 */
+.rev-extra-stats{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:6px 0 4px;padding:0 2px;}
+.rev-extra-stats span{font-size:11px;color:var(--ink-soft);background:var(--bg-soft);padding:3px 10px;border-radius:10px;font-variant-numeric:tabular-nums;}
+
+/* 任务分类列表 */
+.rev-class-list{margin:8px 0 4px;}
+.rev-class-hi,.rev-class-lo{font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;margin-bottom:6px;}
+.rev-class-hi{background:#E8F5E9;color:#2E7D32;}
+.rev-class-lo{background:#FFF3E0;color:#E65100;}
+.rev-class-row{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:8px;font-size:12px;}
+.rev-class-row .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.rev-class-row b{font-weight:600;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rc-rate{font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap;}
+
+/* 跨周调整提示 */
+.rev-cw{font-size:11px;color:var(--ink-soft);background:var(--bg-soft);padding:5px 10px;border-radius:8px;margin-top:6px;text-align:center;}
+
+/* 习惯最优/待优化标注 */
+.rev-habit-best{margin-top:8px;}
+.rev-hb-good,.rev-hb-low{font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;margin-bottom:4px;}
+.rev-hb-good{background:#E8F5E9;color:#2E7D32;}
+.rev-hb-low{background:#FFF3E0;color:#E65100;}
+
+/* AI 小结面板 */
+.rev-ai-panel{border:1.5px solid var(--line)!important;}
+.rev-ai-row{display:flex;align-items:flex-start;gap:8px;padding:6px 2px;font-size:13px;line-height:1.7;color:var(--ink);}
+.rev-ai-row:not(:last-child){border-bottom:1px solid var(--bg-soft);}
+.rev-ai-ico{flex-shrink:0;font-size:16px;line-height:1.7;width:22px;text-align:center;}
+.rev-ai-text{flex:1;min-width:0;}
+.rev-ai-text b{font-weight:700;color:var(--ink);}
+
+/* 图表容器自适应 */
+#revQuadrant,#revTaskTrend,#revFocusTrend{max-width:100%;}
+
+/* 手机竖屏：KPI 卡片 2 列 */
+@media (max-width:420px){
+  .stat-cards{grid-template-columns:repeat(2,1fr)!important;max-width:100%;}
+  .scard{padding:10px 8px;}
+  .scard b{font-size:20px;}
+  .rev-subtitle{font-size:13px;}
+  .rev-extra-stats span{font-size:10.5px;padding:2px 8px;}
+}
+
+/* 大屏：KPI 4 列 */
+@media (min-width:680px){
+  .stat-cards{grid-template-columns:repeat(4,1fr)!important;max-width:520px;}
+  .mini-stats{justify-content:space-between;}
+}
