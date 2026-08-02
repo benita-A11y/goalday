@@ -1,8 +1,10 @@
-/* 计划册 Service Worker - 离线可用 + 每次刷新拉取最新 */
-const CACHE = "jihua-v41";
+/* 计划册 Service Worker - 离线可用 + 每次刷新拉取最新
+   v42 重大改动：index.html 不进预缓存、永远走 network-first
+   —— iOS PWA 一旦预缓存旧 HTML 就顽固保留，导致复盘页结构错位/空白。必须保证每次打开都拉新 HTML。 */
+const CACHE = "jihua-v42";
+/* 注意：index.html 故意不在 ASSETS 里（不预缓存）。其他静态资源保留预缓存以保证离线可用。 */
 const ASSETS = [
   "./",
-  "./index.html",
   "./styles.css",
   "./app.js",
   "./plus.js",
@@ -17,14 +19,17 @@ self.addEventListener("install", e => {
 });
 
 self.addEventListener("activate", e => {
+  /* 清空所有旧版缓存（包括 jihua-v42 及之前所有版本） */
   e.waitUntil(
     caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
-/* 应用外壳（html/js/css）采用「网络优先」：每次刷新都先取服务器最新，
-   更新本地缓存；仅在断网时回退到缓存，保证离线可用且更新必达。 */
+/* 应用外壳一律 network-first（每次刷新先取服务器最新，更新本地缓存；离线时回退到缓存）：
+   - index.html：必走 network，iOS PWA 必须每次拉新结构（autoSync meta 自检依赖）
+   - styles.css/app.js/plus.js/manifest.webmanifest/version.json：network-first 保证更新必达
+   - 其余资源（图标等）：缓存优先，离线可用 */
 const SHELL_RE = /\/(index\.html|styles\.css|app\.js|plus\.js|manifest\.webmanifest|version\.json)$/;
 
 self.addEventListener("fetch", e => {
@@ -33,6 +38,7 @@ self.addEventListener("fetch", e => {
   if (url.origin !== self.location.origin) return; // 外部资源（CDN 等）不拦截
 
   if (SHELL_RE.test(url.pathname)) {
+    /* shell 资源：network-first（iOS PWA 必杀：保证每次拉到最新） */
     e.respondWith(
       fetch(e.request)
         .then(res => {
@@ -47,7 +53,7 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // 其余资源（图标等）缓存优先，离线可用
+  // 其余资源（图标等）：缓存优先，离线可用
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then(hit => {
       if (hit) return hit;
@@ -57,7 +63,7 @@ self.addEventListener("fetch", e => {
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
-      }).catch(() => caches.match("./index.html"));
+      }).catch(() => caches.match("./"));
     })
   );
 });
