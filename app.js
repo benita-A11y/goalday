@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 38;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 39;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2385,12 +2385,12 @@ function paintReview(dates,isDay,isYear){
   const rate=planned.length?Math.round(doneT.length/planned.length*100):0;
   const schedRate=schedT.length?Math.round(schedDone.length/schedT.length*100):0;
   /* 专注 */
-  const recs=state.pomo.records.filter(r=>isYear?dates.includes(r.date.slice(0,7)):dates.includes(r.date));
+  const recs=(state.pomo&&state.pomo.records||[]).filter(r=>isYear?dates.includes(r.date.slice(0,7)):dates.includes(r.date));
   const focusMin=recs.reduce((s,r)=>s+r.minutes,0);
   const pomoCnt=recs.length;
   const avgMin=pomoCnt?Math.round(focusMin/pomoCnt):0;
   /* 习惯 */
-  let habitDays=0;dates.forEach(ds=>{if(state.habits.some(h=>h.checks[ds]))habitDays++;});
+  let habitDays=0;dates.forEach(ds=>{if(state.habits.some(h=>(h.checks||{})[ds]))habitDays++;});
   const habitRate=Math.round(habitDays/rangeLen*100);
   /* 附加 */
   const overdueCnt=state.tasks.filter(t=>!t.abandoned&&!t.done&&t.due&&t.due<todayStr()&&inRange(t.due)).length;
@@ -2433,8 +2433,9 @@ function paintReview(dates,isDay,isYear){
 
   /* ── 习惯打卡复盘 ── */
   const hd=state.habits.filter(h=>!h.archived).map(h=>{
-    let c=0;dates.forEach(ds=>{if(h.checks[ds])c++;});
-    let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(h.checks[ds])streak++;else break;}
+    const checks=h.checks||{};
+    let c=0;dates.forEach(ds=>{if(checks[ds])c++;});
+    let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(checks[ds])streak++;else break;}
     return {h,c,rate:Math.round(c/rangeLen*100),streak};
   }).sort((a,b)=>b.rate-a.rate);
   const habitHasData=hd.some(o=>o.c>0);
@@ -2881,7 +2882,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v38";
+  const SW_URL="sw.js?__v=jihua-v39";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
