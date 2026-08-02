@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 42;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 43;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2351,32 +2351,28 @@ function rateOf(dates,isYear){const inR=ds=>ds&&(isYear?dates.includes(ds.slice(
 function renderReview(){
   $$("#revDims button").forEach(b=>b.classList.toggle("active",b.dataset.d===state.reviewDim));
   const dataView=$("#dataView");
-  const oldErr=dataView.querySelector(".rev-error"); if(oldErr)oldErr.remove();   /* 数据正常时不残留错误条 */
+  const oldErr=dataView.querySelector(".rev-error"); if(oldErr)oldErr.remove();
   let range;
   try{ range=revRange(); }
   catch(err){ console.error("复盘取数失败",err); revFatal(err); return; }
   $("#revRangeLabel").textContent=range.label||"";
-  dataView.classList.add("loading");   /* 轻量加载态：先骨架屏，下一帧再渲染真实数据 */
-  /* v41：兜底超时——3 秒后无论 paintReview 是否完成，强制撤掉 loading 防卡白屏 */
+  toast("正在加载哦...");   /* 小弹窗：让用户知道在加载 */
+  dataView.classList.add("loading");
   const loadingGuard=setTimeout(()=>{
     const dv2=$("#dataView");
-    if(dv2.classList.contains("loading")){
-      console.warn("[复盘] 渲染超时（>3s），强制撤掉 loading");
-      dv2.classList.remove("loading");
-    }
+    if(dv2.classList.contains("loading")){ dv2.classList.remove("loading"); }
   },3000);
   requestAnimationFrame(()=>{
     try{
-      /* 每次进入都从 state 同源重新计算：数据最新、精准、跨模块一致，绝不读陈旧缓存 */
       paintReview(range.dates,range.isDay,range.isYear);
       ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
-      /* v41：渲染后兜底——若关键面板仍为空（说明前面异常被 try/catch 吞了），强制写兜底文案 */
       ensurePanelsNotEmpty();
+      setTimeout(()=>toast("已更新 ✨"),500);   /* 小弹窗：让用户知道更新完成 */
     }catch(err){
       console.error("复盘渲染失败",err); revFatal(err);
     }finally{
       clearTimeout(loadingGuard);
-      dataView.classList.remove("loading");   /* 无论成败都撤掉骨架，绝不卡白屏 */
+      dataView.classList.remove("loading");
     }
   });
 }
@@ -2958,7 +2954,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v42";
+  const SW_URL="sw.js?__v=jihua-v43";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -3019,12 +3015,12 @@ function initReviewRefresh(){
   const sb=document.querySelector("#page-review .scroll-body");if(!sb)return;
   let y0=0,pull=false;
   sb.addEventListener("touchstart",e=>{if(sb.scrollTop<=0&&e.touches&&e.touches[0]){y0=e.touches[0].clientY;pull=true;}},{passive:true});
-  sb.addEventListener("touchmove",e=>{if(!pull||!e.touches||!e.touches[0])return;const dy=e.touches[0].clientY-y0;if(dy>70){pull=false;renderReview();toast("已刷新 🔄");}},{passive:true});
+  sb.addEventListener("touchmove",e=>{if(!pull||!e.touches||!e.touches[0])return;const dy=e.touches[0].clientY-y0;if(dy>70){pull=false;renderReview();}},{passive:true});
   sb.addEventListener("touchend",()=>{pull=false;});
 }
 window.addEventListener("resize",()=>{if(state.activeTab==="review")renderReview();});
 /* 复盘刷新机制（最终版）：仅「进入/切回/手动/唤醒」时刷新一次，页面静止后禁止任何自动刷新 */
-$("#revRefresh").addEventListener("click",()=>{renderReview();toast("已刷新最新数据 🔄");});
+$("#revRefresh").addEventListener("click",()=>{renderReview();});
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && state.activeTab==="review"){renderReview();} });
 initReviewRefresh();
 
