@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 49;   /* v49：奶油手帐风空状态文案 + 空态canvas彻底隐藏。构建号：必须与 version.json 的 build 完全一致。 */
+const BUILD = 50;   /* v50：奶油手帐风空状态文案 + 空态canvas彻底隐藏 + 版本更新小弹窗 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -3185,7 +3185,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v49";
+  const SW_URL="sw.js?__v=jihua-v50";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -3194,6 +3194,40 @@ if("serviceWorker" in navigator){
   });
   navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());
 }
+/* v49：版本更新小弹窗 ——
+   用户上次见过的版本(lastSeenBuild) != 当前 BUILD → 弹一个温柔卡片告诉用户已更新，
+   1.8s 自动消失；点「✨ 知道了」可手动关闭；之后再次刷新不再弹（避免打扰）。
+   触发场景：① 用户首次打开新部署的版本 ② autoSync 检测到新版本自动 reload 后 ③ SW controllerchange reload 后 */
+const SEEN_KEY="goalday_lastSeenBuild";
+function showUpdateBadge(){
+  try{
+    const last=parseInt(localStorage.getItem(SEEN_KEY)||"0",10);
+    if(last===BUILD)return;          /* 已弹过同版本，不再打扰 */
+    localStorage.setItem(SEEN_KEY,String(BUILD));
+    /* 弹窗 DOM：奶油手帐风中央小卡片 */
+    let box=$("#updBadge");
+    if(!box){
+      box=document.createElement("div");
+      box.id="updBadge";
+      box.className="upd-badge";
+      box.innerHTML=
+        '<div class="upd-badge-card">'+
+          '<div class="upd-badge-emoji">✨</div>'+
+          '<div class="upd-badge-title">已更新至最新版本</div>'+
+          '<div class="upd-badge-sub">计划册 v'+BUILD+' · 复盘空状态文案优化啦</div>'+
+          '<button class="upd-badge-btn">✨ 知道了</button>'+
+        '</div>';
+      document.body.appendChild(box);
+      box.querySelector(".upd-badge-btn").addEventListener("click",()=>{box.classList.remove("show");});
+      /* 1.8s 后自动消失 */
+      setTimeout(()=>{box.classList.remove("show");},1800);
+      /* 下一帧触发 show 类，CSS transition 淡入 */
+      requestAnimationFrame(()=>{requestAnimationFrame(()=>{box.classList.add("show");});});
+    }
+  }catch(e){console.warn("update badge skipped",e);}
+}
+/* 页面加载后 600ms 触发一次（DOM 已就绪、SW 检测完后），确保不与首屏渲染抢帧 */
+window.addEventListener("load",()=>setTimeout(showUpdateBadge,600));
 /* 跨设备同步 + HTML 自身版本自检：v42 起，部署更新必达
    - 拉 version.json 检测 app.js BUILD 落后：落后就 reload
    - 读 <meta name="app-build"> 检测 HTML 自身版本落后：落后就 reload（根治 iOS PWA 钉死旧 HTML 的 bug）

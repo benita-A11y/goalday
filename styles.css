@@ -1506,3 +1506,35 @@ body.no-scroll{overflow:hidden;}
 .pick-new-btns{display:flex;gap:8px;}
 .pick-new-btns .set-btn{flex:1;justify-content:center;}
 .set-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* ═══════════ v49 · 版本更新小弹窗（奶油手帐风） ═══════════ */
+.upd-badge{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.85);
+  z-index:9999;opacity:0;pointer-events:none;
+  transition:opacity .32s ease,transform .32s cubic-bezier(.22,1.4,.36,1);
+}
+.upd-badge.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto;}
+.upd-badge-card{
+  background:#FFFDF8;
+  border:1.5px solid #E8D9B5;
+  border-radius:18px;
+  padding:22px 26px 18px;text-align:center;
+  box-shadow:0 14px 38px -10px rgba(150,120,60,.32),0 4px 10px -2px rgba(0,0,0,.06);
+  max-width:280px;
+}
+.upd-badge-emoji{font-size:30px;line-height:1;margin-bottom:8px;}
+.upd-badge-title{font-size:15px;font-weight:700;color:#5A4A2E;letter-spacing:.5px;margin-bottom:4px;}
+.upd-badge-sub{font-size:12px;color:#9A8866;line-height:1.6;margin-bottom:14px;}
+.upd-badge-btn{
+  background:#F5E6CC;color:#5A4A2E;border:1px solid #E8D9B5;
+  border-radius:10px;padding:6px 18px;font-size:13px;font-weight:600;
+  cursor:pointer;transition:background .2s;
+}
+.upd-badge-btn:hover{background:#EFD9B5;}
+@media (prefers-color-scheme:dark){
+  .upd-badge-card{background:#2A2620;border-color:#4A4034;box-shadow:0 14px 38px -10px rgba(0,0,0,.5);}
+  .upd-badge-title{color:#F5E6CC;}
+  .upd-badge-sub{color:#B8A886;}
+  .upd-badge-btn{background:#4A4034;color:#F5E6CC;border-color:#5A4F40;}
+  .upd-badge-btn:hover{background:#5A4F40;}
+}

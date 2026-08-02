@@ -3,7 +3,7 @@
    —— v42 的 SHELL_RE 只匹配 /index.html 结尾的 URL，但用户访问 /goalday/ 时
    pathname 是 /goalday/ 不匹配 → 落入 cache-first → 永远返回旧 HTML！
    修复：用 e.request.mode==='navigate' 捕获所有页面导航，保证每次拉最新 HTML。 */
-const CACHE = "jihua-v49";
+const CACHE = "jihua-v50";
 const ASSETS = [
   "./",
   "./styles.css",
