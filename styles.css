@@ -1389,6 +1389,44 @@ body.no-scroll{overflow:hidden;}
 .rev-error{margin-bottom:12px;border-color:color-mix(in srgb,var(--accent) 40%,var(--line));}
 .rev-error .pp{color:var(--ink-soft);line-height:1.7;}
 
+/* ═══ v44 复盘：选择周期按钮 / 刷新旋转 / 空状态居中 / 骨架 / 弹窗 ═══ */
+.rev-pick{position:absolute;right:48px;top:50%;transform:translateY(-50%);border:1px solid var(--line);background:var(--bg-soft);font-size:12px;color:var(--ink-soft);padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;font-weight:500;transition:opacity .2s;}
+.rev-pick:active{background:var(--bg);}
+.rev-pick.disabled{opacity:.38;pointer-events:none;}
+.rev-refresh.spinning{animation:revSpin .8s linear infinite;}
+@keyframes revSpin{from{transform:translateY(-50%) rotate(0)}to{transform:translateY(-50%) rotate(360deg)}}
+/* 空状态居中文字：替代 0 值卡片，让用户一眼看清"功能正常只是暂无数据" */
+.rev-empty-center{margin:6px 0;padding:22px 14px;border-radius:12px;background:var(--bg-soft);color:var(--ink-soft);font-size:14px;line-height:1.8;text-align:center;}
+/* 切换 tab 时的轻量骨架占位 */
+.rev-skel .panel{min-height:60px;}
+.rev-skel #revSummary,.rev-skel #revSchedStats,.rev-skel #revFocusStats,.rev-skel #revHabitStats{opacity:.5;}
+/* 周期选择弹窗 */
+.rev-pick-mask{position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.rev-pick-sheet{background:var(--bg);border-radius:16px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;}
+.rev-pick-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:15px;color:var(--ink);}
+.rev-pick-head button{border:none;background:none;font-size:16px;color:var(--ink-soft);cursor:pointer;padding:4px 8px;}
+#revPickBody{padding:12px 16px;max-height:60vh;overflow:auto;}
+.rev-pick-btns{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--line);}
+.rev-pick-btns button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:14px;font-weight:500;cursor:pointer;color:var(--ink-soft);}
+.rev-pick-btns button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.rev-pick-btns button.primary:active{opacity:.85;}
+/* 周选择迷你日历 */
+.rpk-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.rpk-nav{border:none;background:var(--bg-soft);font-size:18px;color:var(--ink-soft);cursor:pointer;padding:4px 12px;border-radius:8px;}
+.rpk-lbl{font-size:14px;font-weight:600;color:var(--ink);}
+.rpk-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;}
+.rpk-dow span{text-align:center;font-size:11px;color:var(--ink-3);padding:2px 0;}
+.rpk-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.rpk-day{border:none;background:var(--bg-soft);border-radius:8px;padding:8px 0;font-size:13px;color:var(--ink);cursor:pointer;text-align:center;transition:background .15s;}
+.rpk-day:active{background:color-mix(in srgb,var(--accent) 20%,var(--bg-soft));}
+.rpk-day.out{color:var(--ink-3);opacity:.5;}
+.rpk-day.sel{background:var(--accent);color:#fff;font-weight:600;}
+/* 月选择器 */
+.rpk-mp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;}
+.rpk-mon{border:1px solid var(--line);background:var(--bg-soft);border-radius:10px;padding:14px 0;font-size:15px;color:var(--ink);cursor:pointer;text-align:center;transition:background .15s;}
+.rpk-mon:active{background:color-mix(in srgb,var(--accent) 18%,var(--bg-soft));}
+.rpk-mon.sel{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+
 /* ═══ 打卡 · 历史记录 ═══ */
 .hist-dims{margin:10px 14px 4px;}
 .rec-list{display:flex;flex-direction:column;gap:6px;margin-top:6px;}

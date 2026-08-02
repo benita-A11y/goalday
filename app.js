@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 43;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 44;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -44,6 +44,7 @@ function defaultState(){
     weekOffset:0, weekView:"simple", viewMode:"week", poolList:"all", splitLeft:null, daySplit:null,
     todoLayer:"inbox", todoSel:"inbox",
     reviewDim:"week",
+    reviewAnchor:todayStr(),   /* v44：复盘自定义周期锚点，null=今天 */
     dayDate:todayStr(), monthOffset:0,
     habits:[
       {id:uid(),name:"早起喝水",emoji:"💧",color:"#88d8db",listId:l3,hidden:false,archived:false,checks:{},createdAt:Date.now()},
@@ -89,6 +90,7 @@ function load(){
       if(st.settings&&st.settings.scheme===undefined)st.settings.scheme=null;
       if(!st.todoLayer)st.todoLayer="inbox";
       if(!st.reviewDim)st.reviewDim="week";
+      if(!st.reviewAnchor)st.reviewAnchor=todayStr();   /* v44：旧数据补锚点 */
       if(!st.revMode)st.revMode="data";
       if(!st.moods)st.moods={};
       if(!st.palette)st.palette={favs:[],colors:[],lastInspire:null};
@@ -2331,51 +2333,79 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 /* ═══════════ Tab4 复盘（视图 + 统计 合并） ═══════════ */
-$$("#revDims button").forEach(b=>b.addEventListener("click",()=>{state.reviewDim=b.dataset.d;renderReview();save();}));
+$$("#revDims button").forEach(b=>b.addEventListener("click",()=>{state.reviewDim=b.dataset.d;updateRevPickBtn();renderReview();save();}));
+/* v44：复盘周期锚点 —— reviewAnchor 是一个日期字符串，周/月/年均以它为基准计算；
+   null 或空串时回退到今天。切 tab 不重置锚点，手动选周期才更新。 */
+function revAnchorDate(){
+  const a=state.reviewAnchor;
+  if(!a)return new Date();
+  const d=new Date(a+"T00:00:00");
+  return isNaN(d.getTime())?new Date():d;
+}
 function revRange(){
-  const dim=state.reviewDim,now=new Date();
-  if(dim==="day"){const ds=todayStr();return {dates:[ds],label:`${now.getMonth()+1}月${now.getDate()}日 ${DAY_NAMES[(now.getDay()+6)%7]} · 今天`,isDay:true,isYear:false};}
-  if(dim==="week"){const ds=weekDates(0).map(fmtDate);return {dates:ds,label:`${ds[0].slice(5).replace("-","/")} – ${ds[6].slice(5).replace("-","/")} 本周`,isDay:false,isYear:false};}
-  if(dim==="month"){const y=now.getFullYear(),m=now.getMonth();const n=new Date(y,m+1,0).getDate();const ds=[];for(let i=1;i<=n;i++)ds.push(fmtDate(new Date(y,m,i)));return {dates:ds,label:`${y}年${m+1}月`,isDay:false,isYear:false};}
-  const y=now.getFullYear();const ds=[];for(let m=0;m<12;m++)ds.push(`${y}-${String(m+1).padStart(2,"0")}`);return {dates:ds,label:`${y}年`,isDay:false,isYear:true};
+  const dim=state.reviewDim,anc=revAnchorDate();
+  if(dim==="day"){const ds=todayStr();const now=new Date();return {dates:[ds],label:`当前查看：${now.getMonth()+1}月${now.getDate()}日 ${DAY_NAMES[(now.getDay()+6)%7]}`,isDay:true,isYear:false};}
+  if(dim==="week"){
+    const m=new Date(anc);m.setHours(0,0,0,0);m.setDate(m.getDate()-((m.getDay()+6)%7));
+    const ds=[];for(let i=0;i<7;i++){const d=new Date(m);d.setDate(m.getDate()+i);ds.push(fmtDate(d));}
+    const wk=isoWeek(m);
+    const s0=ds[0].slice(5).replace("-","."),s6=ds[6].slice(5).replace("-",".");
+    return {dates:ds,label:`当前查看：第${wk}周｜${s0}‑${s6}`,isDay:false,isYear:false};
+  }
+  if(dim==="month"){const y=anc.getFullYear(),m=anc.getMonth();const n=new Date(y,m+1,0).getDate();const ds=[];for(let i=1;i<=n;i++)ds.push(fmtDate(new Date(y,m,i)));return {dates:ds,label:`当前查看：${y}-${String(m+1).padStart(2,"0")}月`,isDay:false,isYear:false};}
+  const y=anc.getFullYear();const ds=[];for(let m=0;m<12;m++)ds.push(`${y}-${String(m+1).padStart(2,"0")}`);return {dates:ds,label:`当前查看：${y}年`,isDay:false,isYear:true};
 }
 function revRangeShifted(dim){
-  const now=new Date();
+  const anc=revAnchorDate();
   if(dim==="day")return [addDays(todayStr(),-1)];
-  if(dim==="week")return weekDates(-1).map(fmtDate);
-  if(dim==="month"){const y=now.getFullYear(),m=now.getMonth()-1;const n=new Date(y,m+1,0).getDate();const out=[];for(let i=1;i<=n;i++)out.push(fmtDate(new Date(y,m,i)));return out;}
-  const y=now.getFullYear()-1;const out=[];for(let m=0;m<12;m++)out.push(`${y}-${String(m+1).padStart(2,"0")}`);return out;
+  if(dim==="week"){const m=new Date(anc);m.setHours(0,0,0,0);m.setDate(m.getDate()-7-((m.getDay()+6)%7));const out=[];for(let i=0;i<7;i++){const d=new Date(m);d.setDate(m.getDate()+i);out.push(fmtDate(d));}return out;}
+  if(dim==="month"){const y=anc.getFullYear(),m=anc.getMonth()-1;const n=new Date(y,m+1,0).getDate();const out=[];for(let i=1;i<=n;i++)out.push(fmtDate(new Date(y,m,i)));return out;}
+  const y=anc.getFullYear()-1;const out=[];for(let m=0;m<12;m++)out.push(`${y}-${String(m+1).padStart(2,"0")}`);return out;
 }
 function rateOf(dates,isYear){const inR=ds=>ds&&(isYear?dates.includes(ds.slice(0,7)):dates.includes(ds));const p=state.tasks.filter(t=>!t.abandoned&&inR(t.due));return p.length?Math.round(p.filter(t=>t.done).length/p.length*100):null;}
-/* 复盘进入/切换：轻量骨架屏 + 同步重算，出错不白屏；不整页重载，仅局部刷新 */
-function renderReview(){
+/* 复盘进入/切换：轻量骨架屏 + 同步重算，出错不白屏；不整页重载，仅局部刷新
+   v44：manual=true 表示用户点了右上角刷新按钮 → 旋转动画 + 成功/失败 toast */
+function renderReview(manual){
   $$("#revDims button").forEach(b=>b.classList.toggle("active",b.dataset.d===state.reviewDim));
+  updateRevPickBtn();   /* v44：根据当前 tab 切换选择周期按钮可用/置灰 */
   const dataView=$("#dataView");
   const oldErr=dataView.querySelector(".rev-error"); if(oldErr)oldErr.remove();
   let range;
   try{ range=revRange(); }
-  catch(err){ console.error("复盘取数失败",err); revFatal(err); return; }
+  catch(err){ console.error("复盘取数失败",err); revFatal(err); if(manual)stopRevSpin(false); return; }
   $("#revRangeLabel").textContent=range.label||"";
-  toast("正在加载哦...");   /* 小弹窗：让用户知道在加载 */
-  dataView.classList.add("loading");
+  if(manual){
+    const btn=$("#revRefresh"); if(btn)btn.classList.add("spinning");
+  }else{
+    toast("正在加载哦...");
+    dataView.classList.add("rev-skel");   /* v44：切换 tab 时骨架占位，不空白 */
+  }
   const loadingGuard=setTimeout(()=>{
     const dv2=$("#dataView");
-    if(dv2.classList.contains("loading")){ dv2.classList.remove("loading"); }
+    if(dv2.classList.contains("rev-skel")){ dv2.classList.remove("rev-skel"); }
+    if(manual)stopRevSpin(false);
   },3000);
   requestAnimationFrame(()=>{
+    let ok=false;
     try{
       paintReview(range.dates,range.isDay,range.isYear);
       ["#revUtil","#revFocusHeat","#revFocusTrend","#revCal"].forEach(s=>{const el=$(s);if(el){el.classList.remove("fade-in");void el.offsetWidth;el.classList.add("fade-in");}});
       ensurePanelsNotEmpty();
-      setTimeout(()=>toast("已更新 ✨"),500);   /* 小弹窗：让用户知道更新完成 */
+      ok=true;
+      if(manual) setTimeout(()=>toast("✅数据已刷新，为最新版本"),200);
+      else setTimeout(()=>toast("已更新 ✨"),500);
     }catch(err){
       console.error("复盘渲染失败",err); revFatal(err);
+      if(manual) setTimeout(()=>toast("⚠️刷新失败，请重试"),200);
     }finally{
       clearTimeout(loadingGuard);
-      dataView.classList.remove("loading");
+      dataView.classList.remove("rev-skel");
+      if(manual)stopRevSpin(ok);
     }
   });
 }
+/* v44：停止刷新按钮旋转动画 */
+function stopRevSpin(ok){const btn=$("#revRefresh");if(btn)btn.classList.remove("spinning");}
 /* 数据/渲染异常兜底：保留顶部标题与周月年 tab，仅用友好文案替代空白 */
 function revFatal(err){
   const dv=$("#dataView"); dv.classList.remove("loading");
@@ -2465,45 +2495,72 @@ function paintReview(dates,isDay,isYear){
     console.error("[复盘] 数据计算降级（已用 0/[] 兜底）",e);
   }
 
-  /* v41：每个面板独立 try/catch + safeWrite 兜底，单个失败不影响其它模块 */
+  /* v44：每个面板独立空状态——无数据时卡片内部居中只展示对应纯文字提示，
+     有数据才渲染图表统计。卡片容器/标题始终保留，绝不空白塌陷。 */
   const safeWrite=(id,html)=>{const el=$(id);if(!el)return;try{el.innerHTML=html;}catch(e){console.error(`[复盘] ${id} 写入失败`,e);}};
+  const hideEl=s=>{const el=$(s);if(el)el.style.display="none";};
+  const showEl=s=>{const el=$(s);if(el)el.style.display="";};
+  const emptyCard=txt=>`<div class="rev-empty rev-empty-center">${txt}</div>`;
+
   try{
-  /* ── 第一层 总体概览 ── */
-  safeWrite("#revSummary",
-    `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
-    `<div class="scard"><b>${schedRate}%</b><span>日程达标率 🗓️</span></div>`+
-    `<div class="scard"><b>${hrs(focusMin)}</b><span>专注小时 ⏱️</span></div>`+
-    `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
-    `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
-    `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`);
+  /* ── 总体概览 ── */
+  const summaryEmpty=planned.length===0 && recs.length===0 && habitDays===0;
+  if(summaryEmpty){
+    safeWrite("#revSummary",emptyCard("📋当前周期暂无任务、日程、专注记录"));
+  }else{
+    safeWrite("#revSummary",
+      `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
+      `<div class="scard"><b>${schedRate}%</b><span>日程达标率 🗓️</span></div>`+
+      `<div class="scard"><b>${hrs(focusMin)}</b><span>专注小时 ⏱️</span></div>`+
+      `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
+      `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
+      `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`);
+  }
   }catch(e){console.error("概览渲染失败",e);}
   try{
   /* ── 日程执行复盘 ── */
-  safeWrite("#revSchedStats",
-    `<div class="ms"><b>${liftTotal}</b><span>排程任务</span></div>`+
-    `<div class="ms"><b>${liftDone}</b><span>已完成</span></div>`+
-    `<div class="ms"><b>${liftUndone}</b><span>未完成</span></div>`+
-    `<div class="ms"><b>${autoNew}</b><span>当日新建排程</span></div>`);
-  safeDraw(()=>drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9"));   /* 无数据时仍渲染 0 值与坐标轴 */
   const schedEmpty=schedT.length===0;
-  safeWrite("#revUtilLegend", schedEmpty?revEmptyTip():`<span>每日排程任务数（时间利用率）</span>`);
+  if(schedEmpty){
+    safeWrite("#revSchedStats",emptyCard("🗓本周期暂无日程排程，安排计划后查看数据"));
+    safeWrite("#revUtilLegend","");
+    hideEl("#revUtil");
+  }else{
+    safeWrite("#revSchedStats",
+      `<div class="ms"><b>${liftTotal}</b><span>排程任务</span></div>`+
+      `<div class="ms"><b>${liftDone}</b><span>已完成</span></div>`+
+      `<div class="ms"><b>${liftUndone}</b><span>未完成</span></div>`+
+      `<div class="ms"><b>${autoNew}</b><span>当日新建排程</span></div>`);
+    showEl("#revUtil");
+    safeDraw(()=>drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9"));
+    safeWrite("#revUtilLegend",`<span>每日排程任务数（时间利用率）</span>`);
+  }
   }catch(e){console.error("日程复盘渲染失败",e);}
   try{
   /* ── 番茄专注复盘 ── */
-  safeWrite("#revFocusStats",
-    `<div class="ms"><b>${hrs(focusMin)}</b><span>总专注(h)</span></div>`+
-    `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
-    `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`);
-  safeDraw(()=>drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6"));   /* 无数据时仍渲染 0 值与坐标轴 */
   const focusEmpty=recs.length===0;
-  safeWrite("#revFocusHeatLegend", focusEmpty?revEmptyTip():`<span>各星期专注时长(h) · 黄金时段一目了然</span>`);
-  safeDraw(()=>drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0)));
+  if(focusEmpty){
+    safeWrite("#revFocusStats",emptyCard("🍅还没有专注记录，开启番茄计时就会产生数据"));
+    safeWrite("#revFocusHeatLegend","");
+    hideEl("#revFocusHeat");hideEl("#revFocusTrend");
+  }else{
+    safeWrite("#revFocusStats",
+      `<div class="ms"><b>${hrs(focusMin)}</b><span>总专注(h)</span></div>`+
+      `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
+      `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`);
+    showEl("#revFocusHeat");showEl("#revFocusTrend");
+    safeDraw(()=>drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6"));
+    safeWrite("#revFocusHeatLegend",`<span>各星期专注时长(h) · 黄金时段一目了然</span>`);
+    safeDraw(()=>drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0)));
+  }
   }catch(e){console.error("专注复盘渲染失败",e);}
   try{
   /* ── 习惯打卡复盘 ── */
   const habitHasData=hd.some(o=>o.c>0);
-  safeWrite("#revHabitStats", hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>");
-  if(!habitHasData){const el=$("#revHabitStats");if(el)el.insertAdjacentHTML("beforeend",revEmptyTip());}   /* 无打卡记录：卡片保留 + 温柔提示 */
+  if(!habitHasData){
+    safeWrite("#revHabitStats",emptyCard("✨还没有打卡哦，完成打卡后生成统计"));
+  }else{
+    safeWrite("#revHabitStats", hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>");
+  }
   }catch(e){console.error("习惯复盘渲染失败",e);}
 
   /* 温柔的夸夸 & 改进：全部基于上面同源计算出的真实数据 */
@@ -2831,7 +2888,7 @@ function resetCleanState(){
     tasks:[],events:[],goals:{},
     weekOffset:0,weekView:"simple",viewMode:"week",poolList:"all",splitLeft:null,daySplit:null,
     todoLayer:"inbox",todoSel:"inbox",
-    reviewDim:"week",dayDate:todayStr(),monthOffset:0,
+    reviewDim:"week",reviewAnchor:todayStr(),dayDate:todayStr(),monthOffset:0,
     habits:[],pomo:{focusMin:25,breakMin:5,noise:false,records:[]},
     settings:keepSettings,activeTab:"todo",
     revMode:"data",moods:{},palette:keepPalette,inspirations:[],annual:{},
@@ -2954,7 +3011,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v43";
+  const SW_URL="sw.js?__v=jihua-v44";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -3020,9 +3077,130 @@ function initReviewRefresh(){
 }
 window.addEventListener("resize",()=>{if(state.activeTab==="review")renderReview();});
 /* 复盘刷新机制（最终版）：仅「进入/切回/手动/唤醒」时刷新一次，页面静止后禁止任何自动刷新 */
-$("#revRefresh").addEventListener("click",()=>{renderReview();});
+$("#revRefresh").addEventListener("click",()=>{renderReview(true);});
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && state.activeTab==="review"){renderReview();} });
 initReviewRefresh();
+
+/* ═══ v44 复盘日期选择器：📅选择周期 ═══ */
+/* 年模式置灰不可点；周模式弹迷你日历选任意一天→归属完整周；月模式弹年月选择器 */
+function updateRevPickBtn(){
+  const btn=$("#revPickDate"); if(!btn)return;
+  if(state.reviewDim==="year"){btn.classList.add("disabled");btn.disabled=true;}
+  else{btn.classList.remove("disabled");btn.disabled=false;}
+}
+let _revPickTmp=null;          /* 临时选择：{type, dateStr} —— 点确定才写入 state */
+let _revPickViewMonth=null;    /* 周日历当前查看的月份 Date */
+let _revPickViewYear=null;     /* 月选择器当前查看的年份 */
+function openRevPicker(){
+  const dim=state.reviewDim;
+  if(dim==="year")return;
+  const mask=$("#revPickMask"); if(!mask)return;
+  mask.hidden=false;
+  _revPickTmp=null;
+  const title=$("#revPickTitle");
+  const body=$("#revPickBody");
+  body.innerHTML="";
+  if(dim==="week"){
+    title.textContent="选择要查看的周";
+    _revPickViewMonth=new Date(revAnchorDate());
+    body.appendChild(buildRevWeekCal());
+  }else{
+    title.textContent="选择要查看的月份";
+    _revPickViewYear=revAnchorDate().getFullYear();
+    body.appendChild(buildRevMonthPick());
+  }
+}
+function closeRevPicker(){const m=$("#revPickMask");if(m)m.hidden=true;}
+/* 周选择迷你日历：点任意一天→高亮所属完整周 */
+function buildRevWeekCal(){
+  const wrap=document.createElement("div");wrap.className="rpk-cal";
+  const head=document.createElement("div");head.className="rpk-head";
+  const prevM=document.createElement("button");prevM.textContent="‹";prevM.className="rpk-nav";
+  const lbl=document.createElement("span");lbl.className="rpk-lbl";
+  const nextM=document.createElement("button");nextM.textContent="›";nextM.className="rpk-nav";
+  head.append(prevM,lbl,nextM);wrap.appendChild(head);
+  const dow=document.createElement("div");dow.className="rpk-dow";
+  DAY_NAMES.forEach(n=>{const s=document.createElement("span");s.textContent=n.slice(1);dow.appendChild(s);});
+  wrap.appendChild(dow);
+  const grid=document.createElement("div");grid.className="rpk-grid";wrap.appendChild(grid);
+  function paint(){
+    const base=_revPickViewMonth;
+    const y=base.getFullYear(),m=base.getMonth();
+    lbl.textContent=`${y}年${m+1}月`;
+    grid.innerHTML="";
+    const first=new Date(y,m,1);
+    const startD=new Date(first);startD.setDate(1-((first.getDay()+6)%7));
+    /* 当前选中的周范围 */
+    let selWeek=null;
+    if(_revPickTmp&&_revPickTmp.type==="week"){
+      const d=new Date(_revPickTmp.dateStr+"T00:00:00");
+      const mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));
+      selWeek=fmtDate(mon);
+    }
+    for(let i=0;i<42;i++){
+      const d=new Date(startD);d.setDate(startD.getDate()+i);
+      const ds=fmtDate(d);
+      const mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));
+      const inSel=selWeek===fmtDate(mon);
+      const cell=document.createElement("button");
+      cell.className="rpk-day"+(d.getMonth()!==m?" out":"")+(inSel?" sel":"");
+      cell.textContent=d.getDate();
+      cell.addEventListener("click",()=>{_revPickTmp={type:"week",dateStr:ds};paint();});
+      grid.appendChild(cell);
+    }
+  }
+  prevM.addEventListener("click",()=>{_revPickViewMonth.setMonth(_revPickViewMonth.getMonth()-1);paint();});
+  nextM.addEventListener("click",()=>{_revPickViewMonth.setMonth(_revPickViewMonth.getMonth()+1);paint();});
+  paint();
+  return wrap;
+}
+/* 月选择器：年导航 + 12 个月按钮 */
+function buildRevMonthPick(){
+  const wrap=document.createElement("div");wrap.className="rpk-mp";
+  const head=document.createElement("div");head.className="rpk-head";
+  const prevY=document.createElement("button");prevY.textContent="‹";prevY.className="rpk-nav";
+  const lbl=document.createElement("span");lbl.className="rpk-lbl";
+  const nextY=document.createElement("button");nextY.textContent="›";nextY.className="rpk-nav";
+  head.append(prevY,lbl,nextY);wrap.appendChild(head);
+  const grid=document.createElement("div");grid.className="rpk-mp-grid";wrap.appendChild(grid);
+  function paint(){
+    const y=_revPickViewYear;lbl.textContent=`${y}年`;grid.innerHTML="";
+    let selM=-1;
+    if(_revPickTmp&&_revPickTmp.type==="month")selM=new Date(_revPickTmp.dateStr+"T00:00:00").getMonth();
+    for(let mm=0;mm<12;mm++){
+      const cell=document.createElement("button");
+      cell.className="rpk-mon"+(mm===selM?" sel":"");
+      cell.textContent=`${mm+1}月`;
+      cell.addEventListener("click",()=>{_revPickTmp={type:"month",dateStr:`${y}-${String(mm+1).padStart(2,"0")}-01`};paint();});
+      grid.appendChild(cell);
+    }
+  }
+  prevY.addEventListener("click",()=>{_revPickViewYear--;paint();});
+  nextY.addEventListener("click",()=>{_revPickViewYear++;paint();});
+  paint();
+  return wrap;
+}
+/* 确认选择 → 写入锚点 → 刷新复盘 */
+function confirmRevPicker(){
+  if(!_revPickTmp){toast("请先选择一个日期哦");return;}
+  state.reviewAnchor=_revPickTmp.dateStr;
+  closeRevPicker();
+  renderReview();save();
+}
+/* 绑定选择器事件 */
+(function initRevPickerEvents(){
+  const pickBtn=$("#revPickDate");
+  if(pickBtn)pickBtn.addEventListener("click",openRevPicker);
+  const closeBtn=$("#revPickClose");
+  if(closeBtn)closeBtn.addEventListener("click",closeRevPicker);
+  const cancelBtn=$("#revPickCancel");
+  if(cancelBtn)cancelBtn.addEventListener("click",closeRevPicker);
+  const okBtn=$("#revPickOk");
+  if(okBtn)okBtn.addEventListener("click",confirmRevPicker);
+  const mask=$("#revPickMask");
+  if(mask)mask.addEventListener("click",e=>{if(e.target===mask)closeRevPicker();});
+})();
+updateRevPickBtn();
 
 /* ═══ 灵感收集箱键盘上方控制条（↑↓ 新建/跳转 · 完成/收起） ═══ */
 (function initKbBar(){
