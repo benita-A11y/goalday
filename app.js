@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 46;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 47;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2333,7 +2333,7 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 /* ═══════════ Tab4 复盘（视图 + 统计 合并） ═══════════ */
-$$("#revDims button").forEach(b=>b.addEventListener("click",()=>{state.reviewDim=b.dataset.d;updateRevPickBtn();renderReview();save();}));
+$$("#revDims button").forEach(b=>b.addEventListener("click",()=>{state.reviewDim=b.dataset.d;renderReview();save();}));
 /* v44：复盘周期锚点 —— reviewAnchor 是一个日期字符串，周/月/年均以它为基准计算；
    null 或空串时回退到今天。切 tab 不重置锚点，手动选周期才更新。 */
 function revAnchorDate(){
@@ -2367,7 +2367,6 @@ function rateOf(dates,isYear){const inR=ds=>ds&&(isYear?dates.includes(ds.slice(
    v44：manual=true 表示用户点了右上角刷新按钮 → 旋转动画 + 成功/失败 toast */
 function renderReview(manual){
   $$("#revDims button").forEach(b=>b.classList.toggle("active",b.dataset.d===state.reviewDim));
-  updateRevPickBtn();   /* v44：根据当前 tab 切换选择周期按钮可用/置灰 */
   const dataView=$("#dataView");
   const oldErr=dataView.querySelector(".rev-error"); if(oldErr)oldErr.remove();
   let range;
@@ -2700,7 +2699,6 @@ function renderRevCalDemo(){
 function injectDemoData(){
   state.reviewDim="week";state.reviewAnchor=todayStr();
   $$("#revDims button").forEach(b=>b.classList.toggle("active",b.dataset.d==="week"));
-  if(typeof updateRevPickBtn==="function")updateRevPickBtn();
   const week=revRange().dates;
   const lists=state.lists||[];
   const l1=lists[0],l2=lists[1],l3=lists[2];
@@ -3172,7 +3170,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v46";
+  const SW_URL="sw.js?__v=jihua-v47";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
@@ -3242,126 +3240,6 @@ $("#revRefresh").addEventListener("click",()=>{renderReview(true);});
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden && state.activeTab==="review"){renderReview();} });
 initReviewRefresh();
 
-/* ═══ v44 复盘日期选择器：📅选择周期 ═══ */
-/* 年模式置灰不可点；周模式弹迷你日历选任意一天→归属完整周；月模式弹年月选择器 */
-function updateRevPickBtn(){
-  const btn=$("#revPickDate"); if(!btn)return;
-  if(state.reviewDim==="year"){btn.classList.add("disabled");btn.disabled=true;}
-  else{btn.classList.remove("disabled");btn.disabled=false;}
-}
-let _revPickTmp=null;          /* 临时选择：{type, dateStr} —— 点确定才写入 state */
-let _revPickViewMonth=null;    /* 周日历当前查看的月份 Date */
-let _revPickViewYear=null;     /* 月选择器当前查看的年份 */
-function openRevPicker(){
-  const dim=state.reviewDim;
-  if(dim==="year")return;
-  const mask=$("#revPickMask"); if(!mask)return;
-  mask.classList.add("show");
-  _revPickTmp=null;
-  const title=$("#revPickTitle");
-  const body=$("#revPickBody");
-  body.innerHTML="";
-  if(dim==="week"){
-    title.textContent="选择要查看的周";
-    _revPickViewMonth=new Date(revAnchorDate());
-    body.appendChild(buildRevWeekCal());
-  }else{
-    title.textContent="选择要查看的月份";
-    _revPickViewYear=revAnchorDate().getFullYear();
-    body.appendChild(buildRevMonthPick());
-  }
-}
-function closeRevPicker(){const m=$("#revPickMask");if(m)m.classList.remove("show");}
-/* 周选择迷你日历：点任意一天→高亮所属完整周 */
-function buildRevWeekCal(){
-  const wrap=document.createElement("div");wrap.className="rpk-cal";
-  const head=document.createElement("div");head.className="rpk-head";
-  const prevM=document.createElement("button");prevM.textContent="‹";prevM.className="rpk-nav";
-  const lbl=document.createElement("span");lbl.className="rpk-lbl";
-  const nextM=document.createElement("button");nextM.textContent="›";nextM.className="rpk-nav";
-  head.append(prevM,lbl,nextM);wrap.appendChild(head);
-  const dow=document.createElement("div");dow.className="rpk-dow";
-  DAY_NAMES.forEach(n=>{const s=document.createElement("span");s.textContent=n.slice(1);dow.appendChild(s);});
-  wrap.appendChild(dow);
-  const grid=document.createElement("div");grid.className="rpk-grid";wrap.appendChild(grid);
-  function paint(){
-    const base=_revPickViewMonth;
-    const y=base.getFullYear(),m=base.getMonth();
-    lbl.textContent=`${y}年${m+1}月`;
-    grid.innerHTML="";
-    const first=new Date(y,m,1);
-    const startD=new Date(first);startD.setDate(1-((first.getDay()+6)%7));
-    /* 当前选中的周范围 */
-    let selWeek=null;
-    if(_revPickTmp&&_revPickTmp.type==="week"){
-      const d=new Date(_revPickTmp.dateStr+"T00:00:00");
-      const mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));
-      selWeek=fmtDate(mon);
-    }
-    for(let i=0;i<42;i++){
-      const d=new Date(startD);d.setDate(startD.getDate()+i);
-      const ds=fmtDate(d);
-      const mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));
-      const inSel=selWeek===fmtDate(mon);
-      const cell=document.createElement("button");
-      cell.className="rpk-day"+(d.getMonth()!==m?" out":"")+(inSel?" sel":"");
-      cell.textContent=d.getDate();
-      cell.addEventListener("click",()=>{_revPickTmp={type:"week",dateStr:ds};paint();});
-      grid.appendChild(cell);
-    }
-  }
-  prevM.addEventListener("click",()=>{_revPickViewMonth.setMonth(_revPickViewMonth.getMonth()-1);paint();});
-  nextM.addEventListener("click",()=>{_revPickViewMonth.setMonth(_revPickViewMonth.getMonth()+1);paint();});
-  paint();
-  return wrap;
-}
-/* 月选择器：年导航 + 12 个月按钮 */
-function buildRevMonthPick(){
-  const wrap=document.createElement("div");wrap.className="rpk-mp";
-  const head=document.createElement("div");head.className="rpk-head";
-  const prevY=document.createElement("button");prevY.textContent="‹";prevY.className="rpk-nav";
-  const lbl=document.createElement("span");lbl.className="rpk-lbl";
-  const nextY=document.createElement("button");nextY.textContent="›";nextY.className="rpk-nav";
-  head.append(prevY,lbl,nextY);wrap.appendChild(head);
-  const grid=document.createElement("div");grid.className="rpk-mp-grid";wrap.appendChild(grid);
-  function paint(){
-    const y=_revPickViewYear;lbl.textContent=`${y}年`;grid.innerHTML="";
-    let selM=-1;
-    if(_revPickTmp&&_revPickTmp.type==="month")selM=new Date(_revPickTmp.dateStr+"T00:00:00").getMonth();
-    for(let mm=0;mm<12;mm++){
-      const cell=document.createElement("button");
-      cell.className="rpk-mon"+(mm===selM?" sel":"");
-      cell.textContent=`${mm+1}月`;
-      cell.addEventListener("click",()=>{_revPickTmp={type:"month",dateStr:`${y}-${String(mm+1).padStart(2,"0")}-01`};paint();});
-      grid.appendChild(cell);
-    }
-  }
-  prevY.addEventListener("click",()=>{_revPickViewYear--;paint();});
-  nextY.addEventListener("click",()=>{_revPickViewYear++;paint();});
-  paint();
-  return wrap;
-}
-/* 确认选择 → 写入锚点 → 刷新复盘 */
-function confirmRevPicker(){
-  if(!_revPickTmp){toast("请先选择一个日期哦");return;}
-  state.reviewAnchor=_revPickTmp.dateStr;
-  closeRevPicker();
-  renderReview();save();
-}
-/* 绑定选择器事件 */
-(function initRevPickerEvents(){
-  const pickBtn=$("#revPickDate");
-  if(pickBtn)pickBtn.addEventListener("click",openRevPicker);
-  const closeBtn=$("#revPickClose");
-  if(closeBtn)closeBtn.addEventListener("click",closeRevPicker);
-  const cancelBtn=$("#revPickCancel");
-  if(cancelBtn)cancelBtn.addEventListener("click",closeRevPicker);
-  const okBtn=$("#revPickOk");
-  if(okBtn)okBtn.addEventListener("click",confirmRevPicker);
-  const mask=$("#revPickMask");
-  if(mask)mask.addEventListener("click",e=>{if(e.target===mask)closeRevPicker();});
-})();
-updateRevPickBtn();
 
 /* ═══ 灵感收集箱键盘上方控制条（↑↓ 新建/跳转 · 完成/收起） ═══ */
 (function initKbBar(){
