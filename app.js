@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 48;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 49;   /* v49：奶油手帐风空状态文案 + 空态canvas彻底隐藏。构建号：必须与 version.json 的 build 完全一致。 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -2518,18 +2518,19 @@ function paintReview(dates,isDay,isYear){
   }
   removeDemoBanner();   /* 有真实数据或已关闭示例 → 移除横幅，走下方真实渲染 */
 
-  /* v44：每个面板独立空状态——无数据时卡片内部居中只展示对应纯文字提示，
-     有数据才渲染图表统计。卡片容器/标题始终保留，绝不空白塌陷。 */
+  /* v49：奶油手帐简约风空状态——四模块独立文案，卡片温暖不空白 */
   const safeWrite=(id,html)=>{const el=$(id);if(!el)return;try{el.innerHTML=html;}catch(e){console.error(`[复盘] ${id} 写入失败`,e);}};
   const hideEl=s=>{const el=$(s);if(el)el.style.display="none";};
   const showEl=s=>{const el=$(s);if(el)el.style.display="";};
   const emptyCard=txt=>`<div class="rev-empty rev-empty-center">${txt}</div>`;
+  /* v49：彻底收起空态下方的 canvas/legend，撑开整个面板高度 */
+  const collapseCanvas=id=>{const el=$(id);if(el){el.style.display="none";el.style.height="0";el.style.margin="0";el.style.padding="0";}};
 
   try{
   /* ── 总体概览 ── */
   const summaryEmpty=planned.length===0 && recs.length===0 && habitDays===0;
   if(summaryEmpty){
-    safeWrite("#revSummary",emptyCard("📋当前周期暂无任务、日程、专注记录"));
+    safeWrite("#revSummary",emptyCard("📋 当前周期暂无任务、日程、专注的数据记录"));
   }else{
     safeWrite("#revSummary",
       `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
@@ -2544,9 +2545,9 @@ function paintReview(dates,isDay,isYear){
   /* ── 日程执行复盘 ── */
   const schedEmpty=schedT.length===0;
   if(schedEmpty){
-    safeWrite("#revSchedStats",emptyCard("🗓本周期暂无日程排程，安排计划后查看数据"));
+    safeWrite("#revSchedStats",emptyCard("🗓 本周期暂无排程 & 完成日程，排计划后即可看见数据"));
     safeWrite("#revUtilLegend","");
-    hideEl("#revUtil");
+    collapseCanvas("#revUtil");
   }else{
     safeWrite("#revSchedStats",
       `<div class="ms"><b>${liftTotal}</b><span>排程任务</span></div>`+
@@ -2562,9 +2563,9 @@ function paintReview(dates,isDay,isYear){
   /* ── 番茄专注复盘 ── */
   const focusEmpty=recs.length===0;
   if(focusEmpty){
-    safeWrite("#revFocusStats",emptyCard("🍅还没有专注记录，开启番茄计时就会产生数据"));
+    safeWrite("#revFocusStats",emptyCard("🍅 还没有专注计时记录，开始番茄专注就会产生复盘数据"));
     safeWrite("#revFocusHeatLegend","");
-    hideEl("#revFocusHeat");hideEl("#revFocusTrend");
+    collapseCanvas("#revFocusHeat");collapseCanvas("#revFocusTrend");
   }else{
     safeWrite("#revFocusStats",
       `<div class="ms"><b>${hrs(focusMin)}</b><span>总专注(h)</span></div>`+
@@ -2580,7 +2581,7 @@ function paintReview(dates,isDay,isYear){
   /* ── 习惯打卡复盘 ── */
   const habitHasData=hd.some(o=>o.c>0);
   if(!habitHasData){
-    safeWrite("#revHabitStats",emptyCard("✨还没有打卡哦，完成打卡后生成统计"));
+    safeWrite("#revHabitStats",emptyCard("✨ 本周还没有打卡记录，完成打卡后这里会生成统计"));
   }else{
     safeWrite("#revHabitStats", hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>");
   }
@@ -3184,7 +3185,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v48";
+  const SW_URL="sw.js?__v=jihua-v49";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
