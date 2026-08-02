@@ -14,7 +14,7 @@ const migColor = c => COLOR_MIGRATE[(c||"").toLowerCase()] || c || "#71b7ed";
 const DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
 const KEY = "goalday-state-v2";
 const OLD_KEY = "goalday-state-v1";
-const BUILD = 39;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
+const BUILD = 40;   /* 构建号：必须与 version.json 的 build 完全一致（否则会每 30s 反复刷新）。部署时两者同步 +1 */
 
 /* ───────── 日期工具 ───────── */
 function fmtDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -108,6 +108,15 @@ function load(){
       });
       if(!st.deletedHabits)st.deletedHabits=[];
       if(!st.habitCollapse)st.habitCollapse={};
+      /* v40：数组自愈——剔除脏数据（null / 非对象项），避免后续 filter 抛错导致整页空白 */
+      const keepObj=a=>Array.isArray(a)?a.filter(x=>x&&typeof x==="object"):[];
+      const rawTasks=st.tasks,rawHabits=st.habits,rawLists=st.lists,rawInsp=st.inspirations,rawRec=st.pomo&&st.pomo.records;
+      st.tasks=keepObj(st.tasks);
+      st.habits=keepObj(st.habits);
+      st.lists=keepObj(st.lists);
+      st.inspirations=keepObj(st.inspirations);
+      if(st.pomo&&Array.isArray(st.pomo.records))st.pomo.records=st.pomo.records.filter(r=>r&&typeof r==="object");
+      if(rawTasks!==st.tasks||rawHabits!==st.habits||rawLists!==st.lists||rawInsp!==st.inspirations||rawRec!==(st.pomo&&st.pomo.records))st._cleaned=true;   /* 标记：清洗过则写回持久化 */
       /* v11：灵感数据归一化（旧 {text,img,color} → 新 {status} 模型） */
       st.inspirations=(st.inspirations||[]).map(n=>({
         id:n.id||uid(),text:n.text||"",img:n.img||null,
@@ -124,6 +133,8 @@ function load(){
 }
 let toastLater=null;
 let state=load();
+/* v40：若本次加载清洗过脏数据，立即把干净版本写回 localStorage，避免下次打开又读到坏数据 */
+try{ if(state&&state._cleaned){delete state._cleaned;save();} }catch(e){}
 let saveTimer=null;
 
 /* ════════════════════════════════════════════════════════════
@@ -2377,26 +2388,33 @@ function paintReview(dates,isDay,isYear){
   const inRange=ds=>ds&&(isYear?dates.includes(ds.slice(0,7)):dates.includes(ds));
   const dayLabels=isYear?dates.map(m=>+m.slice(5)+"月"):dates.map(ds=>isDay?ds.slice(5).replace("-","/"):+ds.slice(8));
   const rangeLen=dates.length||1;
+  const tasks=(state.tasks||[]).filter(t=>t&&typeof t==="object");   /* v40：先剔除脏项，后续访问不再判 null */
+  const habits=(state.habits||[]).filter(h=>h&&typeof h==="object");
+  const lists=(state.lists||[]).filter(l=>l&&typeof l==="object");
+  const records=((state.pomo&&state.pomo.records)||[]).filter(r=>r&&typeof r==="object");
   /* 任务 */
-  const planned=state.tasks.filter(t=>!t.abandoned&&inRange(t.due));
+  const planned=tasks.filter(t=>!t.abandoned&&inRange(t.due));
   const doneT=planned.filter(t=>t.done);
   const schedT=planned.filter(t=>t.time);          // 真正落到时间轴的排程
   const schedDone=schedT.filter(t=>t.done);
+  const liftTotal=schedT.length,liftDone=schedDone.length,liftUndone=liftTotal-liftDone;
+  const autoNew=tasks.filter(t=>!t.abandoned&&t.due&&inRange(t.due)&&t.createdAt&&fmtDate(new Date(t.createdAt))===t.due).length;
   const rate=planned.length?Math.round(doneT.length/planned.length*100):0;
   const schedRate=schedT.length?Math.round(schedDone.length/schedT.length*100):0;
   /* 专注 */
-  const recs=(state.pomo&&state.pomo.records||[]).filter(r=>isYear?dates.includes(r.date.slice(0,7)):dates.includes(r.date));
-  const focusMin=recs.reduce((s,r)=>s+r.minutes,0);
+  const recs=records.filter(r=>isYear?dates.includes(r.date.slice(0,7)):dates.includes(r.date));
+  const focusMin=recs.reduce((s,r)=>s+(+r.minutes||0),0);
   const pomoCnt=recs.length;
   const avgMin=pomoCnt?Math.round(focusMin/pomoCnt):0;
   /* 习惯 */
-  let habitDays=0;dates.forEach(ds=>{if(state.habits.some(h=>(h.checks||{})[ds]))habitDays++;});
+  let habitDays=0;dates.forEach(ds=>{if(habits.some(h=>(h.checks||{})[ds]))habitDays++;});
   const habitRate=Math.round(habitDays/rangeLen*100);
   /* 附加 */
-  const overdueCnt=state.tasks.filter(t=>!t.abandoned&&!t.done&&t.due&&t.due<todayStr()&&inRange(t.due)).length;
+  const overdueCnt=tasks.filter(t=>!t.abandoned&&!t.done&&t.due&&t.due<todayStr()&&inRange(t.due)).length;
   const prevRate=rateOf(revRangeShifted(state.reviewDim),isYear);
   const trend=(prevRate==null)?"":(rate>prevRate?` ↑${rate-prevRate}%`:rate<prevRate?` ↓${prevRate-rate}%`:" 持平");
 
+  try{
   /* ── 第一层 总体概览 ── */
   $("#revSummary").innerHTML=
     `<div class="scard"><b>${rate}%</b><span>任务完成率 🎯${trend}</span></div>`+
@@ -2405,34 +2423,37 @@ function paintReview(dates,isDay,isYear){
     `<div class="scard"><b>${habitRate}%</b><span>习惯达成率 📅</span></div>`+
     `<div class="scard"><b>${planned.length}</b><span>有效任务 📋</span></div>`+
     `<div class="scard"><b>${overdueCnt}</b><span>逾期任务 ⚠️</span></div>`;
+  }catch(e){console.error("概览渲染失败",e);}
+  try{
   /* ── 日程执行复盘 ── */
-  const liftTotal=schedT.length,liftDone=schedDone.length,liftUndone=liftTotal-liftDone;
-  const autoNew=state.tasks.filter(t=>!t.abandoned&&t.due&&inRange(t.due)&&t.createdAt&&fmtDate(new Date(t.createdAt))===t.due).length;
   $("#revSchedStats").innerHTML=
     `<div class="ms"><b>${liftTotal}</b><span>排程任务</span></div>`+
     `<div class="ms"><b>${liftDone}</b><span>已完成</span></div>`+
     `<div class="ms"><b>${liftUndone}</b><span>未完成</span></div>`+
     `<div class="ms"><b>${autoNew}</b><span>当日新建排程</span></div>`;
-  const utilVals=dates.map(k=>state.tasks.filter(t=>!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
+  const utilVals=dates.map(k=>tasks.filter(t=>!t.abandoned&&t.due&&(isYear?t.due.slice(0,7)===k:t.due===k)).length);
   safeDraw(()=>drawBars($("#revUtil"),dayLabels,utilVals,"#9B8EC9"));   /* 无数据时仍渲染 0 值与坐标轴 */
   const schedEmpty=schedT.length===0;
   $("#revUtilLegend").innerHTML=schedEmpty?revEmptyTip():`<span>每日排程任务数（时间利用率）</span>`;
-
+  }catch(e){console.error("日程复盘渲染失败",e);}
+  try{
   /* ── 番茄专注复盘 ── */
   $("#revFocusStats").innerHTML=
     `<div class="ms"><b>${hrs(focusMin)}</b><span>总专注(h)</span></div>`+
     `<div class="ms"><b>${pomoCnt}</b><span>有效番茄</span></div>`+
     `<div class="ms"><b>${avgMin}</b><span>平均单次(分)</span></div>`;
   const wk=[0,0,0,0,0,0,0];
-  recs.forEach(r=>{const d=new Date(r.date+"T00:00:00");const i=(d.getDay()+6)%7;if(i>=0&&i<7)wk[i]+=r.minutes;});
+  recs.forEach(r=>{const d=new Date(r.date+"T00:00:00");const i=(d.getDay()+6)%7;if(i>=0&&i<7)wk[i]+=(+r.minutes||0);});
   safeDraw(()=>drawBars($("#revFocusHeat"),["一","二","三","四","五","六","日"],wk.map(m=>hrs(m)),"#6F9FD6"));   /* 无数据时仍渲染 0 值与坐标轴 */
   const focusEmpty=recs.length===0;
   $("#revFocusHeatLegend").innerHTML=focusEmpty?revEmptyTip():`<span>各星期专注时长(h) · 黄金时段一目了然</span>`;
-  const focusTrend=dates.map(k=>hrs(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+r.minutes,0)));
+  const focusTrend=dates.map(k=>hrs(recs.filter(r=>(isYear?r.date.slice(0,7)===k:r.date===k)).reduce((s,r)=>s+(+r.minutes||0),0)));
   safeDraw(()=>drawLine($("#revFocusTrend"),dayLabels,focusTrend,focusTrend.map(()=>0)));
-
+  }catch(e){console.error("专注复盘渲染失败",e);}
+  let hd=[];
+  try{
   /* ── 习惯打卡复盘 ── */
-  const hd=state.habits.filter(h=>!h.archived).map(h=>{
+  hd=habits.filter(h=>!h.archived).map(h=>{
     const checks=h.checks||{};
     let c=0;dates.forEach(ds=>{if(checks[ds])c++;});
     let streak=0;for(let i=0;i<400;i++){const ds=addDays(todayStr(),-i);if(checks[ds])streak++;else break;}
@@ -2441,13 +2462,14 @@ function paintReview(dates,isDay,isYear){
   const habitHasData=hd.some(o=>o.c>0);
   $("#revHabitStats").innerHTML=hd.length?hd.map(o=>`<div class="habit-row"><span class="dot" style="background:${o.h.color}"></span><b>${esc(o.h.emoji+" "+o.h.name)}</b><span class="hr">连续${o.streak}天 · 完成率${o.rate}%</span></div>`).join(""):"<span>暂无习惯</span>";
   if(!habitHasData)$("#revHabitStats").insertAdjacentHTML("beforeend",revEmptyTip());   /* 无打卡记录：卡片保留 + 温柔提示 */
+  }catch(e){console.error("习惯复盘渲染失败",e);}
 
   /* 温柔的夸夸 & 改进：全部基于上面同源计算出的真实数据 */
   const revCtx={planned,doneT,rate,schedRate,schedDone:liftDone,schedTotal:liftTotal,
-    focusMin,pomoCnt,avgMin,habitRate,habitDays,overdueCnt,prevRate,hd,dates,isYear,isDay};
-  buildPraise(revCtx);
-  buildImprove(revCtx);
-  renderRevCal();
+    focusMin,pomoCnt,avgMin,habitRate,habitDays,overdueCnt,prevRate,hd:hd||[],dates,isYear,isDay,lists,tasks};
+  try{buildPraise(revCtx);}catch(e){console.error("夸夸渲染失败",e);}
+  try{buildImprove(revCtx);}catch(e){console.error("改进渲染失败",e);}
+  try{renderRevCal();}catch(e){console.error("日历渲染失败",e);}
 }
 function buildPraise(o){
   const m=[];
@@ -2495,7 +2517,7 @@ function buildImprove(o){
   if(o.focusMin<60&&!o.isDay)t.push(`专注时长还可以再暖一点，每天一个 25 分钟番茄，比偶尔突击更管用 🍅`);
   /* 找积压最多的清单 */
   let top=null,topN=0;
-  state.lists.forEach(l=>{const n=state.tasks.filter(x=>x.listId===l.id&&!x.done&&!x.abandoned&&!x.due).length;if(n>topN){topN=n;top=l;}});
+  (o.lists||[]).forEach(l=>{if(!l)return;const n=(o.tasks||[]).filter(x=>x&&x.listId===l.id&&!x.done&&!x.abandoned&&!x.due).length;if(n>topN){topN=n;top=l;}});
   if(top&&topN>=3)t.push(`「${esc(top.name)}」里还有 <b>${topN}</b> 条没排进日程，挑 1–2 条先放进周历，脑子就清爽了 📌`);
   if(!t.length)t.push(`这一周期节奏挺舒服的，不用给自己加压，保持住就是胜利 🍃`);
   $("#revImprove").innerHTML=`<h3 class="ptt">💡 可以更好</h3>`+t.map(x=>`<p class="pp">${x}</p>`).join("");
@@ -2882,7 +2904,7 @@ $("#mask").addEventListener("click",e=>{if(e.target===$("#mask"))closeModal();})
 /* SW 注册地址带版本号：每次部署改版本，强制浏览器重新拉取 sw.js（避免浏览器缓存旧 SW 导致永远拿不到新代码）。
    同时监听 controllerchange：新 SW 接管时自动刷新一次，确保用户刷新后即看到最新版。 */
 if("serviceWorker" in navigator){
-  const SW_URL="sw.js?__v=jihua-v39";
+  const SW_URL="sw.js?__v=jihua-v40";
   window.addEventListener("load",()=>{
     navigator.serviceWorker.register(SW_URL).catch(()=>{});
     /* 主动检查 SW 更新：即使页面长期不刷新（如手机后台标签页），部署后也能拉到新版 */
